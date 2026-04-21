@@ -6,8 +6,14 @@ import { subscribe } from '../stream/sse.js';
 export const runsRouter = new Hono();
 
 // POST /runs/start — seed world, start runner, return run metadata
+// Optional body: { mode: "scenario" | "agent" }
 runsRouter.post('/start', async (c) => {
-  const run = await startRun();
+  let mode: 'scenario' | 'agent' = 'scenario';
+  try {
+    const body = await c.req.json<{ mode?: string }>();
+    if (body.mode === 'agent') mode = 'agent';
+  } catch {}
+  const run = await startRun(mode);
   return c.json(run, 201);
 });
 

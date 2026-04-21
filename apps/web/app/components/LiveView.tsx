@@ -72,6 +72,7 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [runId, setRunId] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "running" | "done">("idle");
+  const [agentMode, setAgentMode] = useState<"scenario" | "agent">("scenario");
   const [selected, setSelected] = useState<AgentEvent | null>(null);
   const [liveThinking, setLiveThinking] = useState("");
   const [thinkingMap, setThinkingMap] = useState<Record<string, string>>({});
@@ -124,7 +125,11 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
     setPendingDecisionId(null);
     currentToolCallId.current = null;
 
-    const res = await fetch(`${ENGINE}/runs/start`, { method: "POST" });
+    const res = await fetch(`${ENGINE}/runs/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: agentMode }),
+    });
     const run = await res.json();
     setRunId(run.id);
     onRunStarted?.(run.id);
@@ -164,10 +169,27 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
     <div className="flex flex-col h-full" style={{ background: "#0A0A0D" }}>
       {/* ── Controls bar ──────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 px-5 py-2.5 border-b shrink-0" style={{ borderColor: "#262630" }}>
+        {/* Mode toggle */}
+        <div className="flex rounded overflow-hidden" style={{ border: "1px solid #262630" }}>
+          {(["scenario", "agent"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setAgentMode(m)}
+              className="px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider transition-all duration-150"
+              style={{
+                background: agentMode === m ? "#1C1C24" : "transparent",
+                color: agentMode === m ? "#F5F5F7" : "#8A8A93",
+              }}
+            >
+              {m === "scenario" ? "Scenario" : "Real Agent"}
+            </button>
+          ))}
+        </div>
+
         {status === "running" && (
           <span className="flex items-center gap-1.5 text-xs font-mono" style={{ color: "#F7B955" }}>
             <span className="w-1.5 h-1.5 rounded-full bg-[#F7B955] animate-pulse" />
-            running
+            {agentMode === "agent" ? "agent thinking..." : "running"}
           </span>
         )}
         {status === "done" && (
