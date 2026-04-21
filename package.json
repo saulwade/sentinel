@@ -1,0 +1,31 @@
+{
+  "name": "sentinel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DevTools for AI agents. Built with Opus 4.7.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail --names web,engine -c blue,magenta \"pnpm -F @sentinel/web dev\" \"pnpm -F @sentinel/engine dev\"",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "@biomejs/biome",
+      "esbuild",
+      "sharp",
+      "unrs-resolver"
+    ]
+  }
+}
