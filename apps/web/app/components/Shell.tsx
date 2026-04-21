@@ -33,14 +33,24 @@ export default function Shell() {
 
   return (
     <div className="flex flex-col h-screen" style={{ background: "#0A0A0D" }}>
-      {/* ── Tab bar ────────────────────────────────────────────────────── */}
+      {/* ── Header ─────────────────────────────────────────────────────── */}
       <div
         className="flex items-center gap-1 px-4 py-2 border-b shrink-0"
         style={{ borderColor: "#262630" }}
       >
-        <span className="font-mono text-sm font-medium tracking-widest mr-4" style={{ color: "#F5F5F7" }}>
-          SENTINEL
-        </span>
+        {/* Logo */}
+        <div className="flex items-center gap-2.5 mr-5">
+          <div className="w-6 h-6 rounded flex items-center justify-center" style={{ background: "#A78BFA" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0A0A0D" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+          </div>
+          <span className="font-mono text-sm font-medium tracking-widest" style={{ color: "#F5F5F7" }}>
+            SENTINEL
+          </span>
+        </div>
+
+        {/* Tabs */}
         {TABS.map((tab, i) => {
           const isActive = activeTab === tab;
           return (
@@ -55,17 +65,44 @@ export default function Shell() {
                 boxShadow: isActive ? "0 0 12px rgba(167,139,250,0.08)" : "none",
               }}
             >
-              <span className="opacity-50 mr-1">{i + 1}</span>
+              <span className="opacity-40 mr-1">{i + 1}</span>
               {tab}
             </button>
           );
         })}
-        {runId && (
-          <span className="ml-auto font-mono text-[10px] px-2 py-0.5 rounded" style={{ color: "#8A8A93", background: "#14141A" }}>
-            {runId.slice(0, 8)}
-          </span>
-        )}
+
+        {/* Agent context */}
+        <div className="ml-auto flex items-center gap-3">
+          {runId && (
+            <>
+              <span className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ color: "#8A8A93", background: "#14141A" }}>
+                corp-assistant
+              </span>
+              <span className="font-mono text-[10px]" style={{ color: "#8A8A93" }}>
+                {runId.slice(0, 8)}
+              </span>
+            </>
+          )}
+        </div>
       </div>
+
+      {/* ── Agent task banner (shows what the agent was asked to do) ──── */}
+      {runId && (
+        <div
+          className="flex items-center gap-3 px-5 py-1.5 border-b shrink-0"
+          style={{ borderColor: "#262630", background: "#14141A" }}
+        >
+          <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
+            Task
+          </span>
+          <span className="text-xs font-mono" style={{ color: "#F5F5F7" }}>
+            &quot;Summarize my unread emails&quot;
+          </span>
+          <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>
+            4 tools: read_email, send_email, query_customers, post_slack
+          </span>
+        </div>
+      )}
 
       {/* ── Tab content with fade transitions ──────────────────────────── */}
       <div className="flex-1 min-h-0 relative">
