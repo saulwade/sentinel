@@ -73,6 +73,7 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
   const [runId, setRunId] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "running" | "done">("idle");
   const [startTime, setStartTime] = useState<number>(0);
+  const [agentMode, setAgentMode] = useState<"scenario" | "agent">("scenario");
   const [selected, setSelected] = useState<AgentEvent | null>(null);
   const [liveThinking, setLiveThinking] = useState("");
   const [thinkingMap, setThinkingMap] = useState<Record<string, string>>({});
@@ -126,7 +127,11 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
     setStartTime(Date.now());
     currentToolCallId.current = null;
 
-    const res = await fetch(`${ENGINE}/runs/start`, { method: "POST" });
+    const res = await fetch(`${ENGINE}/runs/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: agentMode }),
+    });
     const run = await res.json();
     setRunId(run.id);
     onRunStarted?.(run.id);
@@ -166,10 +171,44 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
     <div className="flex flex-col h-full" style={{ background: "#0A0A0D" }}>
       {/* ── Controls + Stats bar ─────────────────────────────────────── */}
       <div className="flex items-center gap-4 px-5 py-2 border-b shrink-0" style={{ borderColor: "#262630" }}>
+        {/* Agent mode selector */}
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid #262630" }}>
+            <button
+              onClick={() => setAgentMode("scenario")}
+              className="px-2.5 py-1 text-[10px] font-mono transition-all duration-150"
+              style={{
+                background: agentMode === "scenario" ? "#A78BFA" : "transparent",
+                color: agentMode === "scenario" ? "#0A0A0D" : "#8A8A93",
+                fontWeight: agentMode === "scenario" ? 600 : 400,
+              }}
+              title="Pre-scripted phishing attack scenario — fast, reliable for demos"
+            >
+              Demo Scenario
+            </button>
+            <button
+              onClick={() => setAgentMode("agent")}
+              className="px-2.5 py-1 text-[10px] font-mono transition-all duration-150"
+              style={{
+                background: agentMode === "agent" ? "#7DD3FC" : "transparent",
+                color: agentMode === "agent" ? "#0A0A0D" : "#8A8A93",
+                fontWeight: agentMode === "agent" ? 600 : 400,
+              }}
+              title="Real LLM agent (Haiku) decides autonomously — Pre-cog monitors every action"
+            >
+              Live Agent
+            </button>
+          </div>
+          <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>
+            {agentMode === "scenario" ? "scripted attack" : "LLM decides"}
+          </span>
+        </div>
+
+        {/* Status */}
         {status === "running" && (
           <span className="flex items-center gap-1.5 text-xs font-mono" style={{ color: "#F7B955" }}>
             <span className="w-1.5 h-1.5 rounded-full bg-[#F7B955] animate-pulse" />
-            running
+            {agentMode === "agent" ? "agent thinking" : "running"}
           </span>
         )}
         {status === "done" && (
@@ -177,9 +216,6 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
             <span className="w-1.5 h-1.5 rounded-full bg-[#2DD4A4]" />
             completed
           </span>
-        )}
-        {status === "idle" && (
-          <span className="text-xs font-mono" style={{ color: "#8A8A93" }}>ready</span>
         )}
 
         {/* Stats */}
