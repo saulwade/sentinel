@@ -104,7 +104,7 @@ export default function RedTeam() {
         <button
           onClick={startRedTeam}
           disabled={status === "generating" || status === "testing"}
-          className="ml-auto px-4 py-1.5 rounded text-xs font-mono font-medium disabled:opacity-40"
+          className="ml-auto px-4 py-1.5 rounded text-xs font-mono font-medium disabled:opacity-40 transition-all duration-150 active:scale-95 hover:brightness-110"
           style={{ background: "#FF5A5A", color: "#0A0A0D" }}
         >
           {status === "idle" ? "Launch attack" : status === "done" ? "Re-run" : "Attacking..."}
@@ -131,10 +131,12 @@ export default function RedTeam() {
             <button
               key={i}
               onClick={() => setSelected(r)}
-              className="w-full text-left flex items-center gap-3 px-4 py-2.5 border-b transition-colors hover:bg-[#14141A]"
+              className="w-full text-left flex items-center gap-3 px-4 py-2.5 border-b transition-all duration-150 hover:bg-[#14141A] animate-slide-up"
               style={{
                 borderColor: "#1C1C24",
                 background: selected === r ? "#1C1C24" : undefined,
+                borderLeft: selected === r ? "2px solid #A78BFA" : "2px solid transparent",
+                animationDelay: `${i * 50}ms`,
               }}
             >
               <span className="font-mono text-[10px] w-6 text-right" style={{ color: "#8A8A93" }}>
@@ -231,14 +233,24 @@ export default function RedTeam() {
 
       {/* Summary bar */}
       {summary && (
-        <div className="px-5 py-3 border-t shrink-0 flex items-center gap-6" style={{ borderColor: "#262630", background: "#14141A" }}>
-          <div className="font-mono text-sm" style={{ color: "#F5F5F7" }}>
-            {summary.total} attacks tested
+        <div className="px-5 py-4 border-t shrink-0 flex items-center gap-6 animate-fade-in" style={{ borderColor: "#262630", background: "#14141A" }}>
+          <div className="font-mono text-sm font-medium" style={{ color: "#F5F5F7" }}>
+            {summary.total} attacks
           </div>
-          <div className="flex gap-4 text-xs font-mono">
-            <span style={{ color: "#2DD4A4" }}>{summary.blocked} blocked</span>
-            <span style={{ color: "#F7B955" }}>{summary.paused} paused</span>
-            <span style={{ color: "#FF5A5A" }}>{summary.bypassed} bypassed</span>
+          <div className="h-8 w-px" style={{ background: "#262630" }} />
+          <div className="flex gap-5 text-xs font-mono">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#2DD4A4]" />
+              <span style={{ color: "#2DD4A4" }}>{summary.blocked} blocked</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#F7B955]" />
+              <span style={{ color: "#F7B955" }}>{summary.paused} paused</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#FF5A5A]" />
+              <span style={{ color: "#FF5A5A" }}>{summary.bypassed} bypassed</span>
+            </div>
           </div>
         </div>
       )}

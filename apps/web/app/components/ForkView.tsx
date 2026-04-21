@@ -92,15 +92,23 @@ export default function ForkView({ runId }: { runId: string | null }) {
   if (!data && !loading) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
-        <p className="font-mono text-sm" style={{ color: "#8A8A93" }}>
-          Fork reality: remove the phishing email and replay.
+        <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-2" style={{ background: "#14141A" }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7DD3FC" strokeWidth="1.5">
+            <path d="M6 3v12M18 9a3 3 0 100-6 3 3 0 000 6zM6 21a3 3 0 100-6 3 3 0 000 6zM18 9a9 9 0 01-9 9" />
+          </svg>
+        </div>
+        <p className="font-mono text-sm" style={{ color: "#F5F5F7" }}>
+          Fork reality
+        </p>
+        <p className="font-mono text-xs mb-3" style={{ color: "#8A8A93" }}>
+          Remove the phishing email and replay the agent in an alternate timeline
         </p>
         <button
           onClick={triggerFork}
-          className="px-4 py-2 rounded text-sm font-mono font-medium"
+          className="px-5 py-2 rounded text-sm font-mono font-medium transition-all duration-150 active:scale-95 hover:brightness-110"
           style={{ background: "#7DD3FC", color: "#0A0A0D" }}
         >
-          Fork: Remove email_003 & replay
+          Fork & Replay
         </button>
       </div>
     );
@@ -108,10 +116,17 @@ export default function ForkView({ runId }: { runId: string | null }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full gap-3">
-        <span className="w-2 h-2 rounded-full bg-[#A78BFA] animate-pulse" />
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <div className="flex items-center gap-3">
+          <span className="w-2 h-2 rounded-full bg-[#A78BFA] animate-pulse" />
+          <span className="w-2 h-2 rounded-full bg-[#7DD3FC] animate-pulse" style={{ animationDelay: "150ms" }} />
+          <span className="w-2 h-2 rounded-full bg-[#2DD4A4] animate-pulse" style={{ animationDelay: "300ms" }} />
+        </div>
         <p className="font-mono text-sm" style={{ color: "#A78BFA" }}>
-          Forking reality... Opus is replaying the alternate timeline
+          Forking reality...
+        </p>
+        <p className="font-mono text-xs" style={{ color: "#8A8A93" }}>
+          Opus is replaying the agent in an alternate timeline
         </p>
       </div>
     );
@@ -126,7 +141,7 @@ export default function ForkView({ runId }: { runId: string | null }) {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full animate-fade-in">
       {/* ── Two columns ───────────────────────────────────────────────── */}
       <div className="flex flex-1 min-h-0">
         {/* Branch A: Original (what happened) */}

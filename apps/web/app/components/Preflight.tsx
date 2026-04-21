@@ -107,7 +107,7 @@ export default function Preflight() {
         <button
           onClick={startPreflight}
           disabled={status === "generating" || status === "running"}
-          className="ml-auto px-4 py-1.5 rounded text-xs font-mono font-medium disabled:opacity-40"
+          className="ml-auto px-4 py-1.5 rounded text-xs font-mono font-medium disabled:opacity-40 transition-all duration-150 active:scale-95 hover:brightness-110"
           style={{ background: "#A78BFA", color: "#0A0A0D" }}
         >
           {status === "idle" ? "Run simulation" : status === "done" ? "Re-run" : "Running..."}
@@ -132,36 +132,36 @@ export default function Preflight() {
         {days.map((day) => (
           <div
             key={day.day}
-            className="flex items-center gap-3 px-3 py-2 rounded font-mono text-xs"
-            style={{ background: "#14141A" }}
+            className="flex items-center gap-3 px-3 py-2 rounded font-mono text-xs animate-slide-up"
+            style={{ background: "#14141A", animationDelay: `${day.day * 20}ms` }}
           >
-            <span className="w-12" style={{ color: "#8A8A93" }}>
+            <span className="w-12 shrink-0" style={{ color: "#8A8A93" }}>
               day {String(day.day).padStart(2, "0")}
             </span>
-            <div
-              className="flex-1 h-1.5 rounded-full"
-              style={{ background: "#262630" }}
-            >
+            <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "#262630" }}>
               <div
-                className="h-full rounded-full transition-all"
+                className="h-full rounded-full transition-all duration-500 ease-out"
                 style={{
                   width: "100%",
-                  background: day.status === "pass" ? "#2DD4A4" : "#FF5A5A",
+                  background: day.status === "pass"
+                    ? "linear-gradient(90deg, #2DD4A4, #7DD3FC)"
+                    : "linear-gradient(90deg, #FF5A5A, #F7B955)",
                 }}
               />
             </div>
-            <span style={{ color: "#8A8A93" }}>
-              {day.events} events
+            <span className="w-16 text-right shrink-0" style={{ color: "#8A8A93" }}>
+              {day.events} event{day.events !== 1 ? "s" : ""}
             </span>
             <span
-              className="w-2 h-2 rounded-full"
+              className="w-2 h-2 rounded-full shrink-0"
               style={{
                 background: day.status === "pass" ? "#2DD4A4" : "#FF5A5A",
+                boxShadow: day.status === "fail" ? "0 0 6px rgba(255,90,90,0.5)" : undefined,
               }}
             />
             {day.failures.length > 0 && (
-              <span style={{ color: "#FF5A5A" }}>
-                {day.failures.length} fail{day.failures.length > 1 ? "s" : ""}
+              <span className="shrink-0" style={{ color: "#FF5A5A" }}>
+                {day.failures.length} fail
               </span>
             )}
           </div>
@@ -171,22 +171,32 @@ export default function Preflight() {
       {/* Grade card */}
       {result && (
         <div
-          className="px-5 py-4 border-t shrink-0"
+          className="px-5 py-5 border-t shrink-0 animate-fade-in"
           style={{ borderColor: "#262630", background: "#14141A" }}
         >
           <div className="flex items-center gap-6">
-            <div
-              className="text-4xl font-mono font-bold"
-              style={{ color: gradeColor(result.grade) }}
-            >
-              {result.grade}
+            <div className="flex flex-col items-center">
+              <div
+                className="text-5xl font-mono font-bold"
+                style={{
+                  color: gradeColor(result.grade),
+                  textShadow: `0 0 24px ${gradeColor(result.grade)}40`,
+                }}
+              >
+                {result.grade}
+              </div>
+              <div className="text-[10px] font-mono uppercase tracking-widest mt-1" style={{ color: "#8A8A93" }}>
+                safety grade
+              </div>
             </div>
-            <div className="space-y-1">
-              <div className="text-sm font-mono" style={{ color: "#F5F5F7" }}>
-                {result.passed} passed · {result.failed} failed · {result.totalScenarios} total
+            <div className="h-10 w-px" style={{ background: "#262630" }} />
+            <div className="space-y-1.5">
+              <div className="flex gap-4 text-sm font-mono">
+                <span style={{ color: "#2DD4A4" }}>{result.passed} passed</span>
+                <span style={{ color: result.failed > 0 ? "#FF5A5A" : "#8A8A93" }}>{result.failed} failed</span>
               </div>
               <div className="text-xs font-mono" style={{ color: "#8A8A93" }}>
-                {result.totalDays} simulated days · {result.totalScenarios} scenarios evaluated
+                {result.totalDays} simulated days · {result.totalScenarios} scenarios
               </div>
             </div>
           </div>
