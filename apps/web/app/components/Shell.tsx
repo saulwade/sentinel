@@ -4,6 +4,8 @@ import { useState, useCallback } from "react";
 import LiveView from "./LiveView";
 import Timeline from "./Timeline";
 import ForkView from "./ForkView";
+import Preflight from "./Preflight";
+import RedTeam from "./RedTeam";
 
 const TABS = ["Live", "Timeline", "Fork", "Pre-flight", "Red Team"] as const;
 type Tab = (typeof TABS)[number];
@@ -30,7 +32,7 @@ export default function Shell() {
           SENTINEL
         </span>
         {TABS.map((tab, i) => {
-          const enabled = tab === "Live" || tab === "Timeline" || tab === "Fork";
+          const enabled = true; // all tabs active
           return (
             <button
               key={tab}
@@ -60,16 +62,16 @@ export default function Shell() {
           <LiveView onRunStarted={handleRunStarted} />
         </div>
         <div className={`absolute inset-0 ${activeTab === "Timeline" ? "" : "hidden"}`}>
-          <Timeline runId={runId} />
+          <Timeline runId={runId} visible={activeTab === "Timeline"} />
         </div>
         <div className={`absolute inset-0 ${activeTab === "Fork" ? "" : "hidden"}`}>
           <ForkView runId={runId} />
         </div>
-        <div className={`absolute inset-0 flex items-center justify-center ${activeTab === "Pre-flight" ? "" : "hidden"}`}>
-          <p className="font-mono text-sm" style={{ color: "#8A8A93" }}>Pre-flight — Day 3</p>
+        <div className={`absolute inset-0 ${activeTab === "Pre-flight" ? "" : "hidden"}`}>
+          <Preflight />
         </div>
-        <div className={`absolute inset-0 flex items-center justify-center ${activeTab === "Red Team" ? "" : "hidden"}`}>
-          <p className="font-mono text-sm" style={{ color: "#8A8A93" }}>Red Team — Day 3</p>
+        <div className={`absolute inset-0 ${activeTab === "Red Team" ? "" : "hidden"}`}>
+          <RedTeam />
         </div>
       </div>
     </div>

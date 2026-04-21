@@ -6,6 +6,8 @@ import { runsRouter } from './routes/runs.js';
 import { decisionsRouter } from './routes/decisions.js';
 import { timelineRouter } from './routes/timeline.js';
 import { forkRouter } from './routes/fork.js';
+import { preflightRouter } from './routes/preflight.js';
+import { redteamRouter } from './routes/redteam.js';
 
 const app = new Hono();
 
@@ -19,6 +21,8 @@ app.route('/runs', runsRouter);
 app.route('/decide', decisionsRouter);
 app.route('/timeline', timelineRouter);
 app.route('/fork', forkRouter);
+app.route('/preflight', preflightRouter);
+app.route('/redteam', redteamRouter);
 
 const PORT = Number(process.env.PORT ?? 3001);
 

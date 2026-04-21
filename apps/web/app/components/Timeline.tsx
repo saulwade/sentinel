@@ -37,7 +37,7 @@ function dotColor(ev: AgentEvent): string {
   return "bg-[#F5F5F7]";
 }
 
-export default function Timeline({ runId }: { runId: string | null }) {
+export default function Timeline({ runId, visible }: { runId: string | null; visible?: boolean }) {
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [cursor, setCursor] = useState<number>(0);
   const [snap, setSnap] = useState<Snapshot | null>(null);
@@ -45,16 +45,16 @@ export default function Timeline({ runId }: { runId: string | null }) {
   const [forking, setForking] = useState(false);
   const [forkRunId, setForkRunId] = useState<string | null>(null);
 
-  // Load events when runId changes
+  // Load events when runId changes or tab becomes visible
   useEffect(() => {
-    if (!runId) return;
+    if (!runId || !visible) return;
     fetch(`${ENGINE}/timeline/${runId}`)
       .then((r) => r.json())
       .then((evts: AgentEvent[]) => {
         setEvents(evts);
         if (evts.length > 0) setCursor(evts[evts.length - 1].seq);
       });
-  }, [runId]);
+  }, [runId, visible]);
 
   // Load snapshot when cursor changes
   useEffect(() => {
@@ -136,16 +136,60 @@ export default function Timeline({ runId }: { runId: string | null }) {
       <div className="flex flex-1 min-h-0">
         {/* State panel */}
         <div className="flex-1 overflow-y-auto border-r p-4" style={{ borderColor: "#262630" }}>
+          {/* Current event info */}
+          {snap && snap.events.length > 0 && (() => {
+            const currentEvt = snap.events.find((e) => e.seq === cursor);
+            const p = currentEvt?.payload as Record<string, unknown> | undefined;
+            return currentEvt ? (
+              <div className="mb-4 p-3 rounded" style={{ background: "#1C1C24", border: "1px solid #262630" }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#A78BFA" }}>
+                    Event #{cursor}
+                  </span>
+                  <span className="text-xs font-mono font-bold" style={{
+                    color: currentEvt.type === "decision"
+                      ? (p?.verdict === "ALLOW" ? "#2DD4A4" : p?.verdict === "BLOCK" ? "#FF5A5A" : "#F7B955")
+                      : "#F5F5F7"
+                  }}>
+                    {currentEvt.type === "tool_call" ? `${p?.tool}(${JSON.stringify(p?.args).slice(0, 40)})` :
+                     currentEvt.type === "decision" ? `Pre-cog: ${p?.verdict}` :
+                     currentEvt.type === "tool_result" ? `${p?.tool} returned` : currentEvt.type}
+                  </span>
+                </div>
+                {currentEvt.type === "decision" && p?.reasoning != null && (
+                  <p className="text-xs font-mono" style={{ color: "#8A8A93" }}>
+                    {String(p.reasoning)}
+                  </p>
+                )}
+              </div>
+            ) : null;
+          })()}
+
           <div className="text-[10px] font-mono uppercase tracking-widest mb-3" style={{ color: "#8A8A93" }}>
             World State at #{cursor}
           </div>
 
           {snap && (
             <div className="space-y-4">
+              {/* Summary counters */}
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { label: "Emails", value: snap.world.inbox.length, color: "#F5F5F7" },
+                  { label: "Read", value: snap.world.inbox.filter((e) => e.read).length, color: "#8A8A93" },
+                  { label: "Sent", value: snap.world.sentEmails.length, color: snap.world.sentEmails.length > 0 ? "#FF5A5A" : "#2DD4A4" },
+                  { label: "Slack", value: snap.world.slackLog.length, color: "#8A8A93" },
+                ].map((s) => (
+                  <div key={s.label} className="p-2 rounded text-center" style={{ background: "#14141A" }}>
+                    <div className="text-lg font-mono font-bold" style={{ color: s.color }}>{s.value}</div>
+                    <div className="text-[10px] font-mono uppercase" style={{ color: "#8A8A93" }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
               {/* Inbox */}
               <div>
                 <div className="text-xs font-mono mb-1.5" style={{ color: "#F5F5F7" }}>
-                  Inbox ({snap.world.inbox.length})
+                  Inbox
                 </div>
                 {snap.world.inbox.map((email) => (
                   <div
@@ -153,9 +197,12 @@ export default function Timeline({ runId }: { runId: string | null }) {
                     className="flex items-center gap-2 px-2 py-1.5 rounded mb-1 text-xs font-mono"
                     style={{ background: "#14141A" }}
                   >
-                    <span className={`w-1.5 h-1.5 rounded-full ${email.read ? "bg-[#8A8A93]" : "bg-[#2DD4A4]"}`} />
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${email.read ? "bg-[#8A8A93]" : "bg-[#2DD4A4]"}`} />
+                    <span className="shrink-0" style={{ color: email.read ? "#8A8A93" : "#F5F5F7" }}>
+                      {email.read ? "read" : "unread"}
+                    </span>
                     <span style={{ color: "#8A8A93" }}>{email.from.split("@")[0]}</span>
-                    <span style={{ color: "#F5F5F7" }}>{email.subject}</span>
+                    <span className="truncate" style={{ color: "#F5F5F7" }}>{email.subject}</span>
                   </div>
                 ))}
               </div>
@@ -163,7 +210,7 @@ export default function Timeline({ runId }: { runId: string | null }) {
               {/* Customers */}
               <div>
                 <div className="text-xs font-mono mb-1.5" style={{ color: "#F5F5F7" }}>
-                  Customers ({snap.world.customers.length})
+                  Customers ({snap.world.customers.length} records)
                 </div>
                 {snap.world.customers.map((c) => (
                   <div
@@ -186,10 +233,12 @@ export default function Timeline({ runId }: { runId: string | null }) {
                   Sent Emails ({snap.world.sentEmails.length})
                 </div>
                 {snap.world.sentEmails.length === 0 ? (
-                  <span className="text-xs font-mono" style={{ color: "#8A8A93" }}>none</span>
+                  <div className="text-xs font-mono px-2 py-1.5 rounded" style={{ background: "#14141A", color: "#2DD4A4" }}>
+                    None — no data has left the system
+                  </div>
                 ) : (
                   snap.world.sentEmails.map((e, i) => (
-                    <div key={i} className="text-xs font-mono px-2 py-1" style={{ color: "#FF5A5A" }}>
+                    <div key={i} className="text-xs font-mono px-2 py-1.5 rounded mb-1" style={{ background: "#14141A", color: "#FF5A5A" }}>
                       → {e.to}: {e.subject}
                     </div>
                   ))
