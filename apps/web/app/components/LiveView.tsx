@@ -212,14 +212,12 @@ export default function LiveView({
     fetch(`${ENGINE}/settings`).then((r) => r.json()).then((d) => setDemoCache(d.demoCache ?? true)).catch(() => {});
   }, []);
 
-  // Auto-start when triggered from Command Center
+  // Consume pendingRun signal without auto-starting — just focus the Run button
   useEffect(() => {
-    if (pendingRun && status === "idle") {
+    if (pendingRun) {
       onPendingRunConsumed?.();
-      startRun();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingRun]);
+  }, [pendingRun, onPendingRunConsumed]);
 
   async function toggleDemoCache() {
     const next = !demoCache;
