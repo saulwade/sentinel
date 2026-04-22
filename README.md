@@ -183,16 +183,20 @@ Available MCP tools:
 
 | Tool | Description |
 |---|---|
-| `sentinel_start_run` | Start an agent run (scenario: support/ceo/gdpr) |
-| `sentinel_get_events` | Fetch all events for a run |
-| `sentinel_snapshot` | Get world state at a specific event |
-| `sentinel_list_agent_tools` | List the agent's available tools |
+| `sentinel_start_run` | Start a run (optional `scenario`: support/ceo/gdpr/phishing) |
+| `sentinel_get_events` | Fetch all events with ALLOW/PAUSE/BLOCK verdicts and source (policy/pre-cog) |
+| `sentinel_get_blast_radius` | Money disbursed/blocked, PII exposed/blocked, severity grade |
+| `sentinel_get_policies` | List all active policies with action, severity, description |
+| `sentinel_get_trust_score` | Composite Trust Score (A+ to F) across all runs |
+| `sentinel_snapshot` | Reconstruct world state at a specific event |
+| `sentinel_list_agent_tools` | List the agent's tools in MCP schema format |
 
 Example Claude Code usage:
 ```
-> Start a Sentinel run with the CEO Override scenario and tell me what Pre-cog blocked
+> Start a Sentinel CEO Override run and tell me what was blocked
+> What's the blast radius for that run?
+> What policies are active and what's the Trust Score?
 > Show me the world state at event #5
-> What policies are currently active?
 ```
 
 ---
