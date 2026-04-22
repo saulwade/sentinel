@@ -199,52 +199,100 @@ Leyenda: `[ ]` pendiente · `[x]` hecho · ⚠️ Opus 4.7 · ⏱️ duración e
   - [x] Architecture diagram
   - [x] Quick start, MCP setup, demo steps
 
-- [ ] **4.7 Grabar demo 3 min** ⏱️ 30min
-  - [ ] Script: problema 30s → setup 20s → interdiction 40s → fork+blast 40s → redteam loop 30s → trust score 20s
-  - [ ] OBS + voiceover
-  - [ ] Subir MP4
-
-- [ ] **4.8 Deploy (opcional)** ⏱️ 60min · Sonnet
-  - [ ] Vercel apps/web
-  - [ ] Fly.io / Render apps/engine
-  - [ ] Env vars Anthropic
-  - [ ] URL pública
-
-**DoD Día 4:** demo 5 min end-to-end sin tocar código.
+**DoD Día 4 (base):** demo 5 min end-to-end sin tocar código.
 
 ---
 
-## DÍA 5 — Dom 27 abr AM · Buffer + submit
+## DÍA 4B — Mié-Jue 23-24 abr · Demo Excellence 🎯
+
+> Objetivo: convertir un proyecto técnicamente sólido en algo que gana.
+> Orden de implementación es crítico — no saltarse pasos.
+
+- [ ] **4.9 Attack Storytelling** ⏱️ 3h · Sonnet · **P0 — implementar primero**
+  - [ ] Función `classifyAttack(riskSignals)` → devuelve `{ label, description, severity }` con texto legible ("Prompt Injection", "Data Exfiltration Attempt", "Authority Impersonation")
+  - [ ] En LiveView event list: cuando `riskSignals` incluye señales de ataque, mostrar chip de ataque encima del verdict badge (ej. `⚠ PROMPT INJECTION`)
+  - [ ] En Inspector: panel prominente "Attack Detected" (fondo rojo oscuro) con: tipo de ataque, qué intentó hacer en 1 línea, dominio/recipient objetivo si aplica
+  - [ ] Traducción human-readable de `riskSignals` → badges con texto claro (no `prompt_injection_chain`, sino `Prompt injection`)
+  - [ ] Demo cache: añadir `attackLabel` y `attackNarrative` a entradas de BLOCK existentes
+
+- [ ] **4.10 Counterfactual en BLOCK** ⏱️ 3h · Sonnet · **P0**
+  - [ ] Campo `counterfactual` ya existe en `DecisionPayload` — poblarlo en demo cache para todas las entradas BLOCK
+  - [ ] Formato simplificado: `{ narration: string, impacts: string[] }` (narración 1-2 oraciones + 2-3 bullets de daño concreto: dinero, PII, destino externo)
+  - [ ] En Inspector: panel "Without Sentinel" (fondo rojo muy oscuro, borde rojo) debajo del reasoning box — aparece solo si `counterfactual` presente
+  - [ ] Para LIVE OPUS: llamada Opus separada con thinking 2k, solo cuando `verdict === 'BLOCK'`, resultado se agrega al decision event
+  - [ ] No requiere nuevos endpoints — el campo viaja en el event payload existente
+
+- [ ] **4.11 Recommendations → Policy adoption** ⏱️ 3h · Sonnet · **P0**
+  - [ ] En `Replay.tsx`: conectar `GET /analysis/:runId` y mostrar el panel de análisis completo (hoy no se muestra en ningún lado)
+  - [ ] Panel de recomendaciones: lista de `recommendations[]` con título + rationale
+  - [ ] Para recomendaciones con `policyHint`: botón "→ Harden with Policy" — reutiliza el flujo de synthesis de RedTeam.tsx
+  - [ ] Preview modal + "Adopt" → `POST /policies` → aparece en Command Center
+  - [ ] Loop completo visible: ataque → análisis Opus → recomendación → policy adoptada
+
+- [ ] **4.12 Platform framing — renombrar tabs** ⏱️ 15min · Sonnet · **P1**
+  - [ ] `Shell.tsx`: `Live` → `Runtime` · `Replay` → `Replay` (queda igual) · `Red Team` → `Red Team & Policies` (ya está) · agregar subtítulo descriptivo en cada tab tooltip
+  - [ ] Header del Shell: subtítulo `"AI Agent Security Platform"` en gris debajo del logo
+
+- [ ] **4.13 Policy Simulator** ⏱️ 4h · Sonnet · **P1**
+  - [ ] `POST /policies/simulate` — recibe `Policy` draft + array de `runIds` (default: todos). Corre `evaluatePolicies([policy], toolCall)` sobre cada evento `tool_call` histórico. Responde: `{ matches, wouldBlock, wouldPause, wouldAllow, matchedEvents[] }`
+  - [ ] En `RedTeam.tsx`, dentro del policy preview modal: botón "Test against history →"
+  - [ ] Resultado: `✓ Would block 3 attacks · Allows 5 clean runs · 0 false positives`
+  - [ ] Si no hay runs históricos: mostrar mensaje "Run a scenario first to test coverage"
+  - [ ] No requiere Opus — engine determinístico puro
+
+- [ ] **4.14 Grabar demo 3 min** ⏱️ 45min · **manual**
+  - [ ] Script actualizado: problema 20s → CEO scenario run 30s → BLOCK con attack story + counterfactual 30s → Replay + análisis + "Harden with Policy" 40s → Red Team loop + bypass + synthesize + test simulator 40s → Trust Score sube 20s
+  - [ ] OBS + voiceover
+  - [ ] Subir MP4
+
+- [ ] **4.15 Deploy** ⏱️ 60min · Sonnet · **P1**
+  - [ ] Vercel apps/web
+  - [ ] Fly.io / Render apps/engine
+  - [ ] Env vars Anthropic
+  - [ ] URL pública en README
+
+**DoD Día 4B:** juez abre app → en 10 segundos entiende que hay un ataque y que fue detenido → puede seguir el flujo completo sin explicación → el loop ataque→análisis→policy queda cerrado visualmente.
+
+---
+
+## DÍA 5 — Dom 26 abr AM · Buffer + submit
 
 - [ ] Fresh clone test
 - [ ] Bugs de último minuto
-- [ ] Submit formulario hackathon ~12:00 CDMX
+- [ ] Submit formulario hackathon antes de 18:00 CDMX
 
 ---
 
 ## Orden de sacrificio si algo se atrasa
 
-1. 4.8 Deploy
-2. 4.5 Escenarios extra
-3. 4.2 Fusión Timeline+Fork
-4. 2.5/2.6 Command Center parcial (Trust Score hardcoded)
+1. 4.15 Deploy (URL pública no es requisito)
+2. 4.13 Policy Simulator (impresiona pero demo funciona sin él)
+3. 4.12 Platform framing (estético, no funcional)
+4. 4.10 Counterfactual live Opus (mantener solo versión pre-cacheada)
 
-**NO cortables:** 1.5, 1.6, 2.1, 2.4, 3.1, 3.2, 3.3, 3.5.
+**NO cortables:** 4.9 Attack Storytelling · 4.10 Counterfactual (versión cache) · 4.11 Recommendations → Policy · todos los features de Días 1-3.
+
+**KILL — no tocar bajo ninguna circunstancia:**
+- Multi-agent view / org graph / blast map
+- Agent Memory Diff
+- ESCALATE workflow
+- Refactorizar tipos o runner
 
 ---
 
 ## Riesgos técnicos
 
-- **Red Team loop latency** (30-60s) → mitigar con streaming visible + paralelización
-- **Policy DSL complexity** → arrancar con 3-4 verbos (tool, argMatch, domainCheck, valueThreshold)
-- **Blast radius edge cases** → default "unknown" seguro
+- **Counterfactual LIVE OPUS** — si Opus tarda >10s en el BLOCK, rompe el flujo del demo → mitigar con demo cache primero, live como bonus
+- **Replay analysis panel** — si el endpoint `/analysis/:runId` no responde rápido → mostrar skeleton loader
+- **Policy Simulator false positives** — si hay runs con tool calls normales que matchean la nueva policy → el resultado "0 false positives" es el mensaje de confianza clave
 
 ---
 
-## Bloques con Opus 4.7 ⚠️ (cambiar con `/model` antes)
+## Bloques con Opus 4.7 ⚠️
 
 - 1.5 Policy Engine DSL
 - 2.2 Analysis con thinking
 - 3.1 Red Team loop architecture
 - 3.2 Attacker adaptativo
 - 3.3 Policy Synthesis
+- 4.10 Counterfactual en BLOCK (live mode)
