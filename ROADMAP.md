@@ -249,17 +249,18 @@ Leyenda: `[ ]` pendiente · `[x]` hecho · ⚠️ Opus 4.7 · ⏱️ duración e
 > Objetivo: que un juez no-técnico entienda el valor en <10 segundos.
 > Todo lo de aquí es UI — sin nuevos endpoints, sin Opus, sin arquitectura.
 
-- [ ] **4.16 Better decision labels** ⏱️ 30min · Sonnet · **P0**
-  - [ ] En LiveView event list: bajo el label `BLOCK` / `PAUSE`, agregar subtexto gris con attack label si existe — `BLOCK · Data exfiltration` / `PAUSE · High-value action`
-  - [ ] Actualizar `eventLabel()` para incluir attack type cuando aplica
-  - [ ] Aplica solo si `classifyAttack()` devuelve non-null — no tocar los ALLOW
+- [x] **4.16 Better decision labels** ⏱️ 30min · Sonnet · **P0**
+  - [x] En LiveView event list: label `BLOCK · Data exfiltration` / `PAUSE · High-value action` cuando `classifyAttack()` devuelve non-null
+  - [x] ALLOW events no cambian
+  - [x] Implementado inline en el JSX — `classifyAttack()` ya estaba disponible en scope
 
-- [ ] **4.17 Run summary banner** ⏱️ 45min · Sonnet · **P0**
-  - [ ] En LiveView: cuando `status === 'done'`, mostrar banner de 2 líneas sobre el event list
-  - [ ] Título: "Run complete — Sentinel active"
-  - [ ] Body: "Prevented $X · Blocked N exfiltration attempt(s) · N interdictions" — datos del blast radius del run
-  - [ ] Fetch `GET /analysis/:runId/blast` al completar el run y usar moneyInterdicted + externalEmailsBlocked + actionsInterdicted
-  - [ ] Descartable con X — desaparece al iniciar otro run
+- [x] **4.17 Run summary banner** ⏱️ 45min · Sonnet · **P0**
+  - [x] Fetch `GET /analysis/:runId/blast` al recibir `run_ended`
+  - [x] `buildRunNarrative()` genera copy humano y específico:
+    - "Sentinel prevented $47,320 in potential loss and blocked a data exfiltration attempt."
+    - "Sentinel intercepted N suspicious actions before they could cause harm."
+  - [x] Banner verde sobre el event list, descartable con ×
+  - [x] Se resetea al iniciar un nuevo run
 
 - [ ] **4.18 Damage Prevented hero en Command Center** ⏱️ 30min · Sonnet · **P1**
   - [ ] Mover `moneyInterdicted` aggregate a la posición hero (primera card, número grande en rojo/verde)

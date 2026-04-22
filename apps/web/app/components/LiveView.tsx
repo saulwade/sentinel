@@ -132,6 +132,33 @@ function classifyAttack(riskSignals: string[]): AttackClassification | null {
   return null;
 }
 
+function buildRunNarrative(blast: {
+  moneyInterdicted: number;
+  externalEmailsBlocked: string[];
+  piiExfiltrationAttempted: boolean;
+  actionsInterdicted: number;
+}): string {
+  const parts: string[] = [];
+
+  if (blast.moneyInterdicted > 0) {
+    parts.push(`prevented $${blast.moneyInterdicted.toLocaleString()} in potential loss`);
+  }
+
+  const exfilCount = blast.externalEmailsBlocked.length;
+  if (exfilCount > 0) {
+    parts.push(`blocked ${exfilCount === 1 ? 'a' : exfilCount} data exfiltration attempt${exfilCount > 1 ? 's' : ''}`);
+  } else if (blast.piiExfiltrationAttempted) {
+    parts.push('blocked a PII exposure attempt');
+  }
+
+  if (parts.length === 0 && blast.actionsInterdicted > 0) {
+    return `Sentinel intercepted ${blast.actionsInterdicted} suspicious action${blast.actionsInterdicted > 1 ? 's' : ''} before they could cause harm.`;
+  }
+
+  if (parts.length === 0) return '';
+  return `Sentinel ${parts.join(' and ')}.`;
+}
+
 function attackStyle(severity: 'critical' | 'high' | 'medium') {
   if (severity === 'critical') return { bg: 'rgba(255,90,90,0.08)', border: 'rgba(255,90,90,0.35)', color: '#FF5A5A', dot: 'bg-[#FF5A5A]' };
   if (severity === 'high')     return { bg: 'rgba(255,150,50,0.08)', border: 'rgba(255,150,50,0.35)', color: '#FF9633', dot: 'bg-[#FF9633]' };
@@ -155,6 +182,13 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [blockFlash, setBlockFlash] = useState(false);
+  const [runBlast, setRunBlast] = useState<{
+    moneyInterdicted: number;
+    externalEmailsBlocked: string[];
+    piiExfiltrationAttempted: boolean;
+    actionsInterdicted: number;
+  } | null>(null);
+  const [summaryDismissed, setSummaryDismissed] = useState(false);
   const esRef = useRef<EventSource | null>(null);
   const currentToolCallId = useRef<string | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
@@ -182,6 +216,15 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
     if (ev.type === "observation" && (ev.payload as Record<string, unknown>).kind === "run_ended") {
       setStatus("done");
       setLiveThinking("");
+      setSummaryDismissed(false);
+      // Fetch blast radius for the run summary banner
+      const currentRunId = (ev as AgentEvent).runId;
+      if (currentRunId) {
+        fetch(`${ENGINE}/analysis/${currentRunId}/blast`)
+          .then((r) => r.json())
+          .then((d) => { if (d.blast) setRunBlast(d.blast); })
+          .catch(() => {});
+      }
       return;
     }
 
@@ -222,6 +265,8 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
     setThinkingMap({});
     setPendingDecisionId(null);
     setStartTime(Date.now());
+    setRunBlast(null);
+    setSummaryDismissed(false);
     currentToolCallId.current = null;
 
     const res = await fetch(`${ENGINE}/runs/start`, {
@@ -546,6 +591,30 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
               </div>
             )}
 
+            {/* Run summary banner */}
+            {status === "done" && runBlast && !summaryDismissed && (() => {
+              const narrative = buildRunNarrative(runBlast);
+              if (!narrative) return null;
+              return (
+                <div
+                  className="shrink-0 flex items-start gap-3 px-4 py-2.5 border-b animate-fade-in"
+                  style={{ background: "rgba(45,212,164,0.06)", borderColor: "rgba(45,212,164,0.2)" }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#2DD4A4] shrink-0 mt-1" />
+                  <p className="text-xs font-mono leading-relaxed flex-1" style={{ color: "#2DD4A4" }}>
+                    {narrative}
+                  </p>
+                  <button
+                    onClick={() => setSummaryDismissed(true)}
+                    className="shrink-0 text-[10px] font-mono opacity-40 hover:opacity-80 transition-opacity"
+                    style={{ color: "#2DD4A4" }}
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            })()}
+
             {events.filter((ev) => {
               if (!search) return true;
               const q = search.toLowerCase();
@@ -571,7 +640,14 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
                 )}
                 <span className={`w-2 h-2 rounded-full shrink-0 ${eventDotColor(ev)}`} />
                 <span className="font-mono text-sm" style={{ color: eventTextColor(ev) }}>
-                  {eventLabel(ev)}
+                  {isDecision(ev) ? (() => {
+                    const d = ev.payload as unknown as DecisionPayload;
+                    if (d.verdict !== 'ALLOW') {
+                      const atk = classifyAttack(d.riskSignals ?? []);
+                      if (atk) return `${d.verdict} · ${atk.label}`;
+                    }
+                    return d.verdict;
+                  })() : eventLabel(ev)}
                 </span>
                 {isToolCall(ev) && (
                   <span className="font-mono text-[11px] truncate ml-auto max-w-[200px]" style={{ color: "#8A8A93" }}>
