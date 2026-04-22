@@ -21,6 +21,32 @@ export interface Customer {
   company: string;
   plan: 'starter' | 'growth' | 'enterprise';
   mrr: number; // USD
+  balance: number; // account credit balance USD
+  lifetimeValue: number; // total USD paid
+  tier: 'free' | 'pro' | 'enterprise';
+  piiClass: 'low' | 'medium' | 'high';
+}
+
+export interface Ticket {
+  id: string;
+  customerId: string;
+  subject: string;
+  body: string;
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  createdAt: number;
+  resolvedAt?: number;
+  resolution?: string;
+}
+
+export interface RefundRecord {
+  id: string;
+  customerId: string;
+  ticketId: string;
+  amount: number; // USD
+  reason: string;
+  issuedAt: number;
+  issuedBy: string; // agent id or 'human'
 }
 
 export interface SlackMessage {
@@ -41,6 +67,8 @@ export interface WorldState {
   customers: Customer[];
   slackLog: SlackMessage[];
   sentEmails: SentEmail[];
+  tickets: Ticket[];
+  refunds: RefundRecord[];
 }
 
 let _world: WorldState = {
@@ -48,6 +76,8 @@ let _world: WorldState = {
   customers: [],
   slackLog: [],
   sentEmails: [],
+  tickets: [],
+  refunds: [],
 };
 
 export function getWorld(): WorldState {
@@ -60,5 +90,7 @@ export function resetWorld(seed: Partial<WorldState> = {}): void {
     customers: seed.customers ?? [],
     slackLog: seed.slackLog ?? [],
     sentEmails: seed.sentEmails ?? [],
+    tickets: seed.tickets ?? [],
+    refunds: seed.refunds ?? [],
   };
 }

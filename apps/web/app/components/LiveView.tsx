@@ -19,6 +19,10 @@ interface DecisionPayload {
   verdict: "ALLOW" | "PAUSE" | "BLOCK";
   reasoning: string;
   riskSignals: string[];
+  source?: "policy" | "pre-cog";
+  policyId?: string;
+  thinkingTokens?: number;
+  cached?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -74,12 +78,32 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
   const [status, setStatus] = useState<"idle" | "running" | "done">("idle");
   const [startTime, setStartTime] = useState<number>(0);
   const [agentMode, setAgentMode] = useState<"scenario" | "agent">("scenario");
+  const [scenario, setScenario] = useState<"support" | "ceo" | "gdpr">("support");
+  const [demoCache, setDemoCache] = useState(true);
   const [selected, setSelected] = useState<AgentEvent | null>(null);
   const [liveThinking, setLiveThinking] = useState("");
   const [thinkingMap, setThinkingMap] = useState<Record<string, string>>({});
   const [pendingDecisionId, setPendingDecisionId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [blockFlash, setBlockFlash] = useState(false);
   const esRef = useRef<EventSource | null>(null);
   const currentToolCallId = useRef<string | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    fetch(`${ENGINE}/settings`).then((r) => r.json()).then((d) => setDemoCache(d.demoCache ?? true)).catch(() => {});
+  }, []);
+
+  async function toggleDemoCache() {
+    const next = !demoCache;
+    setDemoCache(next);
+    await fetch(`${ENGINE}/settings/demo-cache`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: next }),
+    }).catch(() => {});
+  }
 
   const handleEvent = useCallback((ev: AgentEvent) => {
     if (isThought(ev)) {
@@ -109,8 +133,13 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
         setThinkingMap((m) => ({ ...m, [ev.id]: prev }));
         return "";
       });
-      if (getVerdict(ev)?.verdict === "PAUSE") {
+      const verdict = getVerdict(ev)?.verdict;
+      if (verdict === "PAUSE") {
         setPendingDecisionId(ev.id);
+      }
+      if (verdict === "BLOCK") {
+        setBlockFlash(true);
+        setTimeout(() => setBlockFlash(false), 1500);
       }
     }
 
@@ -130,7 +159,7 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
     const res = await fetch(`${ENGINE}/runs/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: agentMode }),
+      body: JSON.stringify({ mode: agentMode, scenario }),
     });
     const run = await res.json();
     setRunId(run.id);
@@ -154,21 +183,76 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
 
   useEffect(() => { return () => esRef.current?.close(); }, []);
 
-  // Keyboard: R to run
+  // Keyboard shortcuts
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
-      if (e.key === "r" && status !== "running") startRun();
+      // Search input: handle Esc to close
+      if (e.target instanceof HTMLInputElement) {
+        if (e.key === "Escape") {
+          setSearchOpen(false);
+          setSearch("");
+          (e.target as HTMLInputElement).blur();
+        }
+        return;
+      }
+      if (e.target instanceof HTMLTextAreaElement) return;
+
+      switch (e.key) {
+        case "r":
+          if (status !== "running") startRun();
+          break;
+        case "/":
+          e.preventDefault();
+          setSearchOpen(true);
+          setTimeout(() => searchRef.current?.focus(), 50);
+          break;
+        case "Escape":
+          setSearchOpen(false);
+          setSearch("");
+          break;
+        case "a":
+          if (pendingDecisionId) decide("approve");
+          break;
+        case "d":
+          if (pendingDecisionId) decide("reject");
+          break;
+        case "j": {
+          // Move selection down (older events — events are newest-first in state)
+          setSelected((prev) => {
+            if (events.length === 0) return prev;
+            if (!prev) return events[0] ?? null;
+            const idx = events.findIndex((e) => e.id === prev.id);
+            return idx < events.length - 1 ? (events[idx + 1] ?? prev) : prev;
+          });
+          break;
+        }
+        case "k": {
+          // Move selection up (newer events)
+          setSelected((prev) => {
+            if (events.length === 0) return prev;
+            if (!prev) return events[0] ?? null;
+            const idx = events.findIndex((e) => e.id === prev.id);
+            return idx > 0 ? (events[idx - 1] ?? prev) : prev;
+          });
+          break;
+        }
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [status]);
+  }, [status, events, pendingDecisionId]);
 
   const selectedDecision = selected && isDecision(selected) ? getVerdict(selected) : null;
   const selectedThinking = selected ? thinkingMap[selected.id] ?? "" : "";
 
   return (
-    <div className="flex flex-col h-full" style={{ background: "#0A0A0D" }}>
+    <div
+      className="flex flex-col h-full transition-all duration-300"
+      style={{
+        background: "#0A0A0D",
+        boxShadow: blockFlash ? "inset 0 0 0 2px #FF5A5A, 0 0 40px rgba(255,90,90,0.12)" : undefined,
+      }}
+    >
       {/* ── Controls + Stats bar ─────────────────────────────────────── */}
       <div className="flex items-center gap-4 px-5 py-2 border-b shrink-0" style={{ borderColor: "#262630" }}>
         {/* Agent mode selector */}
@@ -200,21 +284,56 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
             </button>
           </div>
           <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>
-            {agentMode === "scenario" ? "scripted attack" : "LLM decides"}
+            {agentMode === "scenario" ? "scripted" : "LLM"}
           </span>
+        </div>
+
+        {/* Scenario selector */}
+        {agentMode === "scenario" && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>Scenario:</span>
+            <select
+              value={scenario}
+              onChange={(e) => setScenario(e.target.value as typeof scenario)}
+              disabled={status === "running"}
+              className="text-[10px] font-mono px-2 py-0.5 rounded focus:outline-none focus:ring-1 focus:ring-[#A78BFA] disabled:opacity-50"
+              style={{ background: "#14141A", color: "#F5F5F7", border: "1px solid #262630" }}
+            >
+              <option value="support">Support Agent — ticket injection</option>
+              <option value="ceo">CEO Override — authority impersonation</option>
+              <option value="gdpr">GDPR Audit — compliance framing</option>
+            </select>
+          </div>
+        )}
+
+        {/* Pre-cog mode toggle */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>Pre-cog:</span>
+          <button
+            onClick={toggleDemoCache}
+            className="flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-mono font-bold transition-all"
+            style={{
+              background: demoCache ? "rgba(167,139,250,0.12)" : "rgba(45,212,164,0.12)",
+              color: demoCache ? "#A78BFA" : "#2DD4A4",
+              border: `1px solid ${demoCache ? "rgba(167,139,250,0.3)" : "rgba(45,212,164,0.3)"}`,
+            }}
+            title={demoCache ? "Using pre-computed verdicts — click to switch to live Opus" : "Using live Opus — click to switch to pre-computed"}
+          >
+            {demoCache ? "PRE-COMPUTED" : "LIVE OPUS"}
+          </button>
         </div>
 
         {/* Status */}
         {status === "running" && (
           <span className="flex items-center gap-1.5 text-xs font-mono" style={{ color: "#F7B955" }}>
             <span className="w-1.5 h-1.5 rounded-full bg-[#F7B955] animate-pulse" />
-            {agentMode === "agent" ? "agent thinking" : "running"}
+            {agentMode === "agent" ? "agent running" : "intercepting"}
           </span>
         )}
         {status === "done" && (
           <span className="flex items-center gap-1.5 text-xs font-mono" style={{ color: "#2DD4A4" }}>
             <span className="w-1.5 h-1.5 rounded-full bg-[#2DD4A4]" />
-            completed
+            run complete
           </span>
         )}
 
@@ -240,7 +359,7 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
           className="ml-auto px-4 py-1.5 rounded text-xs font-mono font-medium transition-all duration-150 active:scale-95 disabled:opacity-40 hover:brightness-110"
           style={{ background: "#A78BFA", color: "#0A0A0D" }}
         >
-          {status === "idle" ? "Run agent" : "Re-run"}
+          {status === "running" ? "running..." : "▶  Run"}
         </button>
       </div>
 
@@ -250,10 +369,16 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
           className="flex items-center gap-4 px-5 py-2.5 border-b shrink-0 animate-fade-in"
           style={{ background: "rgba(247,185,85,0.08)", borderColor: "#F7B955" }}
         >
-          <span className="w-2 h-2 rounded-full bg-[#F7B955] animate-pulse" />
-          <span className="font-mono text-sm" style={{ color: "#F7B955" }}>
-            Action paused — awaiting your decision
-          </span>
+          <span className="w-2 h-2 rounded-full bg-[#F7B955] animate-pulse shrink-0" />
+          <div className="flex flex-col">
+            <span className="font-mono text-sm font-bold" style={{ color: "#F7B955" }}>
+              Action paused — awaiting decision
+            </span>
+            <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>
+              press <kbd className="px-1 py-0.5 rounded text-[9px]" style={{ background: "#0A0A0D", border: "1px solid #262630" }}>A</kbd> to approve ·{" "}
+              <kbd className="px-1 py-0.5 rounded text-[9px]" style={{ background: "#0A0A0D", border: "1px solid #262630" }}>D</kbd> to deny
+            </span>
+          </div>
           <div className="flex gap-2 ml-auto">
             <button
               onClick={() => decide("approve")}
@@ -267,7 +392,7 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
               className="px-3 py-1.5 rounded text-xs font-mono font-bold transition-all duration-150 active:scale-95 hover:brightness-110"
               style={{ background: "#FF5A5A", color: "#0A0A0D" }}
             >
-              Reject
+              Deny
             </button>
           </div>
         </div>
@@ -284,9 +409,12 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
             <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#A78BFA" }}>
               Opus Extended Thinking
             </span>
+            <span className="ml-auto text-[10px] font-mono tabular-nums" style={{ color: "#A78BFA" }}>
+              ~{Math.ceil(liveThinking.length / 4).toLocaleString()} tokens
+            </span>
           </div>
-          <p className="text-xs font-mono leading-relaxed line-clamp-3" style={{ color: "#A78BFA" }}>
-            {liveThinking.slice(-400)}
+          <p className="text-xs font-mono leading-relaxed line-clamp-2" style={{ color: "rgba(167,139,250,0.7)" }}>
+            {liveThinking.slice(-300)}
           </p>
         </div>
       )}
@@ -301,7 +429,26 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
           >
             Action Stream
             {events.length > 0 && (
-              <span className="ml-auto tabular-nums">{events.length} events</span>
+              <span className="tabular-nums">{events.length} events</span>
+            )}
+            {searchOpen ? (
+              <input
+                ref={searchRef}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="filter events..."
+                className="ml-auto px-2 py-0.5 rounded text-[10px] font-mono focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
+                style={{ background: "#14141A", color: "#F5F5F7", border: "1px solid #262630", width: "140px" }}
+              />
+            ) : (
+              <button
+                onClick={() => { setSearchOpen(true); setTimeout(() => searchRef.current?.focus(), 50); }}
+                className="ml-auto text-[10px] font-mono px-1.5 py-0.5 rounded transition-all hover:brightness-150"
+                style={{ color: "#8A8A93", background: "#14141A", border: "1px solid #1C1C24" }}
+                title="Search events (/)"
+              >
+                /
+              </button>
             )}
           </div>
 
@@ -313,7 +460,9 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
                   <div key={i} className="skeleton h-9 w-full" style={{ opacity }} />
                 ))}
                 <p className="text-xs font-mono text-center pt-4" style={{ color: "#8A8A93" }}>
-                  Press <span style={{ color: "#A78BFA" }}>Run agent</span> or <span style={{ color: "#A78BFA" }}>R</span> to begin
+                  Click <span style={{ color: "#A78BFA" }}>▶ Run</span> or press{" "}
+                  <kbd className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: "#14141A", border: "1px solid #262630", color: "#A78BFA" }}>R</kbd>{" "}
+                  · <kbd className="px-1 py-0.5 rounded text-[10px]" style={{ background: "#14141A", border: "1px solid #262630", color: "#8A8A93" }}>?</kbd> for shortcuts
                 </p>
               </div>
             )}
@@ -327,7 +476,13 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
               </div>
             )}
 
-            {events.map((ev, i) => (
+            {events.filter((ev) => {
+              if (!search) return true;
+              const q = search.toLowerCase();
+              const label = eventLabel(ev).toLowerCase();
+              const payload = JSON.stringify(ev.payload).toLowerCase();
+              return label.includes(q) || payload.includes(q);
+            }).map((ev, i) => (
               <button
                 key={`${ev.id}-${ev.seq}`}
                 onClick={() => setSelected(ev)}
@@ -353,11 +508,35 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
                     {JSON.stringify(ev.payload.args).slice(0, 50)}
                   </span>
                 )}
-                {isDecision(ev) && (
-                  <span className="font-mono text-[11px] truncate ml-auto max-w-[250px]" style={{ color: "#8A8A93" }}>
-                    {(ev.payload as unknown as DecisionPayload).reasoning.slice(0, 60)}
-                  </span>
-                )}
+                {isDecision(ev) && (() => {
+                  const d = ev.payload as unknown as DecisionPayload;
+                  const isPolicy = d.source === "policy";
+                  return (
+                    <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                      <span
+                        className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded"
+                        style={{
+                          background: isPolicy ? "rgba(99,102,241,0.15)" : "rgba(167,139,250,0.12)",
+                          color: isPolicy ? "#818CF8" : "#A78BFA",
+                          border: `1px solid ${isPolicy ? "rgba(99,102,241,0.3)" : "rgba(167,139,250,0.2)"}`,
+                        }}
+                      >
+                        {isPolicy ? "POLICY" : "OPUS"}
+                      </span>
+                      {!isPolicy && d.cached && (
+                        <span
+                          className="text-[9px] font-mono px-1 py-0.5 rounded"
+                          style={{ background: "rgba(138,138,147,0.08)", color: "#8A8A93", border: "1px solid rgba(138,138,147,0.15)" }}
+                        >
+                          CACHED
+                        </span>
+                      )}
+                      <span className="font-mono text-[11px] truncate max-w-[160px]" style={{ color: "#8A8A93" }}>
+                        {d.reasoning.slice(0, 45)}
+                      </span>
+                    </div>
+                  );
+                })()}
               </button>
             ))}
           </div>
@@ -386,34 +565,66 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
               </div>
             ) : (
               <div className="px-4 py-4 space-y-4 animate-fade-in">
-                {/* Verdict badge */}
-                {selectedDecision && (
-                  <div
-                    className="flex items-center gap-3 p-3 rounded"
-                    style={{
-                      background: verdictStyle(selectedDecision.verdict).bg,
-                      border: `1px solid ${verdictStyle(selectedDecision.verdict).border}`,
-                    }}
-                  >
-                    <span
-                      className="px-2.5 py-1 rounded text-xs font-mono font-bold"
-                      style={{ color: verdictStyle(selectedDecision.verdict).color }}
+                {/* Verdict + source badge */}
+                {selectedDecision && (() => {
+                  const isPolicy = selectedDecision.source === "policy";
+                  return (
+                    <div
+                      className="flex items-start gap-3 p-3 rounded"
+                      style={{
+                        background: verdictStyle(selectedDecision.verdict).bg,
+                        border: `1px solid ${verdictStyle(selectedDecision.verdict).border}`,
+                      }}
                     >
-                      {selectedDecision.verdict}
-                    </span>
-                    <div className="flex gap-1.5 flex-wrap">
-                      {selectedDecision.riskSignals.map((s, i) => (
-                        <span
-                          key={i}
-                          className="text-[10px] font-mono px-1.5 py-0.5 rounded"
-                          style={{ background: "#0A0A0D", color: "#FF5A5A" }}
-                        >
-                          {s}
-                        </span>
-                      ))}
+                      <span
+                        className="px-2.5 py-1 rounded text-xs font-mono font-bold shrink-0"
+                        style={{ color: verdictStyle(selectedDecision.verdict).color }}
+                      >
+                        {selectedDecision.verdict}
+                      </span>
+                      <div className="flex flex-col gap-2 flex-1 min-w-0">
+                        {/* Source badge */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span
+                            className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded"
+                            style={{
+                              background: isPolicy ? "rgba(99,102,241,0.15)" : "rgba(167,139,250,0.12)",
+                              color: isPolicy ? "#818CF8" : "#A78BFA",
+                              border: `1px solid ${isPolicy ? "rgba(99,102,241,0.3)" : "rgba(167,139,250,0.2)"}`,
+                            }}
+                          >
+                            {isPolicy
+                              ? `POLICY · ${selectedDecision.policyId ?? "unknown"}`
+                              : "OPUS · extended thinking"}
+                          </span>
+                          {!isPolicy && selectedDecision.cached && (
+                            <span
+                              className="text-[9px] font-mono px-1.5 py-0.5 rounded"
+                              style={{ background: "rgba(138,138,147,0.08)", color: "#8A8A93", border: "1px solid rgba(138,138,147,0.15)" }}
+                              title="Pre-computed verdict. Switch to Live Opus for real-time reasoning."
+                            >
+                              PRE-COMPUTED
+                            </span>
+                          )}
+                        </div>
+                        {/* Risk signals */}
+                        {selectedDecision.riskSignals.filter(s => !s.startsWith("policy:")).length > 0 && (
+                          <div className="flex gap-1.5 flex-wrap">
+                            {selectedDecision.riskSignals.filter(s => !s.startsWith("policy:")).map((s, i) => (
+                              <span
+                                key={i}
+                                className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                                style={{ background: "#0A0A0D", color: "#FF5A5A" }}
+                              >
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Reasoning */}
                 {selectedDecision && (
@@ -423,6 +634,24 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
                     </div>
                     <p className="text-sm font-mono leading-relaxed" style={{ color: "#F5F5F7" }}>
                       {selectedDecision.reasoning}
+                    </p>
+                  </div>
+                )}
+
+                {/* Policy rule box — shown when source is policy */}
+                {selectedDecision?.source === "policy" && selectedDecision.policyId && (
+                  <div className="rounded-lg p-3" style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.2)" }}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#818CF8]" />
+                      <span className="text-[10px] uppercase tracking-widest" style={{ color: "#818CF8" }}>
+                        Matched Policy Rule
+                      </span>
+                    </div>
+                    <p className="text-xs font-mono" style={{ color: "#818CF8" }}>
+                      {selectedDecision.policyId}
+                    </p>
+                    <p className="text-[11px] font-mono mt-1.5 leading-relaxed" style={{ color: "#8A8A93" }}>
+                      Deterministic evaluation · No LLM required · &lt;5ms
                     </p>
                   </div>
                 )}
@@ -440,8 +669,8 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
                   </pre>
                 </div>
 
-                {/* Opus thinking */}
-                {selectedThinking && (
+                {/* Opus thinking — shown only when source is pre-cog */}
+                {selectedDecision?.source !== "policy" && selectedThinking && (
                   <div className="rounded-lg p-3" style={{ background: "rgba(167,139,250,0.06)", border: "1px solid rgba(167,139,250,0.2)" }}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#A78BFA]" />

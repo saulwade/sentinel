@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
-import { startRun, getRun } from '../agent/runner.js';
+import { startRun, getRun, type ScenarioName } from '../agent/runner.js';
 import { subscribe } from '../stream/sse.js';
 
 export const runsRouter = new Hono();
@@ -9,11 +9,15 @@ export const runsRouter = new Hono();
 // Optional body: { mode: "scenario" | "agent" }
 runsRouter.post('/start', async (c) => {
   let mode: 'scenario' | 'agent' = 'scenario';
+  let scenario: ScenarioName = 'support';
   try {
-    const body = await c.req.json<{ mode?: string }>();
+    const body = await c.req.json<{ mode?: string; scenario?: string }>();
     if (body.mode === 'agent') mode = 'agent';
+    if (body.scenario === 'phishing') scenario = 'phishing';
+    else if (body.scenario === 'ceo') scenario = 'ceo';
+    else if (body.scenario === 'gdpr') scenario = 'gdpr';
   } catch {}
-  const run = await startRun(mode);
+  const run = await startRun(mode, scenario);
   return c.json(run, 201);
 });
 

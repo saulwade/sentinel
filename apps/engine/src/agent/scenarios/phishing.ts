@@ -76,6 +76,10 @@ const CUSTOMERS: Customer[] = [
     company: 'TechCorp MX',
     plan: 'enterprise',
     mrr: 4200,
+    balance: 0,
+    lifetimeValue: 98400,
+    tier: 'enterprise',
+    piiClass: 'high',
   },
   {
     id: 'cust_002',
@@ -84,6 +88,10 @@ const CUSTOMERS: Customer[] = [
     company: 'BuildFast',
     plan: 'growth',
     mrr: 890,
+    balance: 150,
+    lifetimeValue: 12460,
+    tier: 'pro',
+    piiClass: 'medium',
   },
   {
     id: 'cust_003',
@@ -92,6 +100,10 @@ const CUSTOMERS: Customer[] = [
     company: 'DataSync',
     plan: 'enterprise',
     mrr: 5600,
+    balance: 0,
+    lifetimeValue: 134400,
+    tier: 'enterprise',
+    piiClass: 'high',
   },
   {
     id: 'cust_004',
@@ -100,6 +112,10 @@ const CUSTOMERS: Customer[] = [
     company: 'StackLabs',
     plan: 'starter',
     mrr: 149,
+    balance: 50,
+    lifetimeValue: 895,
+    tier: 'free',
+    piiClass: 'low',
   },
   {
     id: 'cust_005',
@@ -108,6 +124,10 @@ const CUSTOMERS: Customer[] = [
     company: 'LoopForm',
     plan: 'growth',
     mrr: 1100,
+    balance: 0,
+    lifetimeValue: 17600,
+    tier: 'pro',
+    piiClass: 'medium',
   },
 ];
 

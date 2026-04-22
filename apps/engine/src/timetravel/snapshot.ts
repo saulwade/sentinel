@@ -69,6 +69,8 @@ export function snapshot(runId: string, seq: number): Snapshot {
     customers: structuredClone(CUSTOMERS),
     slackLog: [],
     sentEmails: [],
+    tickets: [],
+    refunds: [],
   };
 
   // Replay tool_result effects

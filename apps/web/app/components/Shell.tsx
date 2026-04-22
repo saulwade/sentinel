@@ -1,30 +1,137 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import CommandCenter from "./CommandCenter";
 import LiveView from "./LiveView";
-import Timeline from "./Timeline";
-import ForkView from "./ForkView";
+import Replay from "./Replay";
 import Preflight from "./Preflight";
 import RedTeam from "./RedTeam";
 
-const TABS = ["Live", "Timeline", "Fork", "Pre-flight", "Red Team"] as const;
+const TABS = ["Command Center", "Live", "Replay", "Pre-flight", "Red Team"] as const;
 type Tab = (typeof TABS)[number];
 
+// ─── Help modal ───────────────────────────────────────────────────────────────
+
+function HelpModal({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape" || e.key === "?") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const sections = [
+    {
+      label: "Navigation",
+      shortcuts: [
+        { keys: ["1", "2", "3", "4", "5"], desc: "Switch tabs" },
+        { keys: ["?"], desc: "Toggle this help" },
+        { keys: ["Esc"], desc: "Close modal / clear search" },
+      ],
+    },
+    {
+      label: "Live — Events",
+      shortcuts: [
+        { keys: ["r"], desc: "Run agent" },
+        { keys: ["j", "k"], desc: "Navigate events (down / up)" },
+        { keys: ["a"], desc: "Approve paused action" },
+        { keys: ["d"], desc: "Deny paused action" },
+        { keys: ["/"], desc: "Open event search" },
+      ],
+    },
+    {
+      label: "Replay",
+      shortcuts: [
+        { keys: ["←", "→"], desc: "Scrub timeline" },
+      ],
+    },
+  ];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(10,10,13,0.8)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="rounded-xl p-6 w-[440px] animate-fade-in"
+        style={{ background: "#14141A", border: "1px solid #262630", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <span className="font-mono text-sm font-semibold" style={{ color: "#F5F5F7" }}>
+            Keyboard shortcuts
+          </span>
+          <button
+            onClick={onClose}
+            className="text-[10px] font-mono px-2 py-1 rounded transition-all hover:brightness-150"
+            style={{ color: "#8A8A93", background: "#1C1C24" }}
+          >
+            Esc
+          </button>
+        </div>
+
+        <div className="space-y-5">
+          {sections.map(({ label, shortcuts }) => (
+            <div key={label}>
+              <div className="text-[9px] font-mono uppercase tracking-widest mb-2" style={{ color: "#8A8A93" }}>
+                {label}
+              </div>
+              <div className="space-y-1.5">
+                {shortcuts.map(({ keys, desc }) => (
+                  <div key={desc} className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      {keys.map((k) => (
+                        <kbd
+                          key={k}
+                          className="px-1.5 py-0.5 rounded text-[10px] font-mono"
+                          style={{ background: "#0A0A0D", color: "#F5F5F7", border: "1px solid #262630" }}
+                        >
+                          {k}
+                        </kbd>
+                      ))}
+                    </div>
+                    <span className="text-xs font-mono" style={{ color: "#8A8A93" }}>{desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 pt-4 border-t text-[10px] font-mono text-center" style={{ borderColor: "#262630", color: "#8A8A93" }}>
+          Press <kbd className="px-1 py-0.5 rounded mx-1" style={{ background: "#0A0A0D", border: "1px solid #262630" }}>?</kbd> anytime to toggle
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Shell ────────────────────────────────────────────────────────────────────
+
 export default function Shell() {
-  const [activeTab, setActiveTab] = useState<Tab>("Live");
+  const [activeTab, setActiveTab] = useState<Tab>("Command Center");
   const [runId, setRunId] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
 
   const handleRunStarted = useCallback((id: string) => {
     setRunId(id);
   }, []);
 
-  // Keyboard shortcuts: 1-5 to switch tabs
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
+      // Tab switching: 1-5
       const idx = Number(e.key) - 1;
       if (idx >= 0 && idx < TABS.length) {
-        setActiveTab(TABS[idx]);
+        setActiveTab(TABS[idx] as Tab);
+        return;
+      }
+      // Help modal
+      if (e.key === "?") {
+        e.preventDefault();
+        setShowHelp((v) => !v);
       }
     }
     window.addEventListener("keydown", onKey);
@@ -33,6 +140,8 @@ export default function Shell() {
 
   return (
     <div className="flex flex-col h-screen" style={{ background: "#0A0A0D" }}>
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div
         className="flex items-center gap-1 px-4 py-2 border-b shrink-0"
@@ -71,22 +180,30 @@ export default function Shell() {
           );
         })}
 
-        {/* Agent context */}
+        {/* Agent context + help hint */}
         <div className="ml-auto flex items-center gap-3">
           {runId && (
             <>
               <span className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ color: "#8A8A93", background: "#14141A" }}>
-                corp-assistant
+                support-agent
               </span>
               <span className="font-mono text-[10px]" style={{ color: "#8A8A93" }}>
                 {runId.slice(0, 8)}
               </span>
             </>
           )}
+          <button
+            onClick={() => setShowHelp(true)}
+            className="font-mono text-[10px] px-1.5 py-0.5 rounded transition-all hover:brightness-150"
+            style={{ color: "#8A8A93", background: "#14141A", border: "1px solid #262630" }}
+            title="Keyboard shortcuts (?)"
+          >
+            ?
+          </button>
         </div>
       </div>
 
-      {/* ── Agent task banner (shows what the agent was asked to do) ──── */}
+      {/* ── Agent task banner ────────────────────────────────────────── */}
       {runId && (
         <div
           className="flex items-center gap-3 px-5 py-1.5 border-b shrink-0"
@@ -96,15 +213,15 @@ export default function Shell() {
             Task
           </span>
           <span className="text-xs font-mono" style={{ color: "#F5F5F7" }}>
-            &quot;Summarize my unread emails&quot;
+            &quot;Process all open support tickets&quot;
           </span>
           <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>
-            4 tools: read_email, send_email, query_customers, post_slack
+            7 tools: lookup_customer_detail, apply_refund, update_ticket, send_email, post_slack…
           </span>
         </div>
       )}
 
-      {/* ── Tab content with fade transitions ──────────────────────────── */}
+      {/* ── Tab content ──────────────────────────────────────────────── */}
       <div className="flex-1 min-h-0 relative">
         {TABS.map((tab) => (
           <div
@@ -115,9 +232,14 @@ export default function Shell() {
               pointerEvents: activeTab === tab ? "auto" : "none",
             }}
           >
+            {tab === "Command Center" && (
+              <CommandCenter
+                onNavigate={(t) => setActiveTab(t as Tab)}
+                onRunStarted={handleRunStarted}
+              />
+            )}
             {tab === "Live" && <LiveView onRunStarted={handleRunStarted} />}
-            {tab === "Timeline" && <Timeline runId={runId} visible={activeTab === "Timeline"} />}
-            {tab === "Fork" && <ForkView runId={runId} />}
+            {tab === "Replay" && <Replay runId={runId} visible={activeTab === "Replay"} />}
             {tab === "Pre-flight" && <Preflight />}
             {tab === "Red Team" && <RedTeam />}
           </div>

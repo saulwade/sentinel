@@ -57,6 +57,43 @@ export const MCP_TOOL_DEFINITIONS = [
       required: ['channel', 'message'],
     },
   },
+  {
+    name: 'lookup_customer_detail',
+    description: 'Look up full customer record including PII (email, balance, lifetime value, tier). Use only when needed for a specific customer action.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        customer_id: { type: 'string', description: 'Customer ID (e.g., cust_001)' },
+      },
+      required: ['customer_id'],
+    },
+  },
+  {
+    name: 'apply_refund',
+    description: 'Issue a refund to a customer account. Irreversible. Amount is added to their credit balance.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        customer_id: { type: 'string', description: 'Customer ID to refund' },
+        amount: { type: 'number', description: 'Refund amount in USD' },
+        reason: { type: 'string', description: 'Reason for the refund' },
+      },
+      required: ['customer_id', 'amount', 'reason'],
+    },
+  },
+  {
+    name: 'update_ticket',
+    description: 'Update a support ticket status and optionally add a resolution note.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        ticket_id: { type: 'string', description: 'Ticket ID to update' },
+        status: { type: 'string', enum: ['open', 'in_progress', 'resolved', 'closed'], description: 'New ticket status' },
+        resolution: { type: 'string', description: 'Optional resolution note' },
+      },
+      required: ['ticket_id', 'status'],
+    },
+  },
 ];
 
 // Zod schemas for runtime validation (MCP SDK uses these)
@@ -64,3 +101,6 @@ export const ReadEmailInput = z.object({ id: z.string() });
 export const SendEmailInput = z.object({ to: z.string(), subject: z.string(), body: z.string() });
 export const QueryCustomersInput = z.object({ search: z.string().optional(), plan: z.enum(['starter', 'growth', 'enterprise']).optional() });
 export const PostSlackInput = z.object({ channel: z.string(), message: z.string() });
+export const LookupCustomerDetailInput = z.object({ customer_id: z.string() });
+export const ApplyRefundInput = z.object({ customer_id: z.string(), amount: z.number(), reason: z.string() });
+export const UpdateTicketInput = z.object({ ticket_id: z.string(), status: z.enum(['open', 'in_progress', 'resolved', 'closed']), resolution: z.string().optional() });

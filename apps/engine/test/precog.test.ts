@@ -33,7 +33,7 @@ function readEmailHistory(emailId: string, body: string): AgentEvent[] {
 
 const WORLD = {
   inbox: [{ id: 'e1', from: 'user@co.io', to: 'agent', subject: 'Test', body: 'hi', receivedAt: 0, read: true }],
-  customers: [{ id: 'c1', name: 'Alice', email: 'a@b.com', company: 'Acme', plan: 'growth' as const, mrr: 100 }],
+  customers: [{ id: 'c1', name: 'Alice', email: 'a@b.com', company: 'Acme', plan: 'growth' as const, mrr: 100, balance: 0, lifetimeValue: 1200, tier: 'pro' as const, piiClass: 'medium' as const }],
   sentEmails: [],
   slackLog: [],
 };

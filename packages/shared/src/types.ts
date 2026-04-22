@@ -35,10 +35,16 @@ export interface ToolResultPayload {
   error?: string;
 }
 
+export type DecisionSource = 'policy' | 'pre-cog';
+
 export interface DecisionPayload {
   verdict: Verdict;
   reasoning: string;
   riskSignals: string[];
+  source?: DecisionSource;
+  policyId?: string;   // set when source === 'policy'
+  thinkingTokens?: number; // set when source === 'pre-cog'
+  cached?: boolean;    // true when pre-cog verdict came from demo cache
   counterfactual?: {
     narration: string;
     simulatedSteps: Array<{

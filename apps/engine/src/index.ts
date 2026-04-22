@@ -8,6 +8,10 @@ import { timelineRouter } from './routes/timeline.js';
 import { forkRouter } from './routes/fork.js';
 import { preflightRouter } from './routes/preflight.js';
 import { redteamRouter } from './routes/redteam.js';
+import { analysisRouter } from './routes/analysis.js';
+import { statsRouter } from './routes/stats.js';
+import { policiesRouter } from './routes/policies.js';
+import { settingsRouter } from './routes/settings.js';
 
 const app = new Hono();
 
@@ -23,6 +27,10 @@ app.route('/timeline', timelineRouter);
 app.route('/fork', forkRouter);
 app.route('/preflight', preflightRouter);
 app.route('/redteam', redteamRouter);
+app.route('/analysis', analysisRouter);
+app.route('/stats', statsRouter);
+app.route('/policies', policiesRouter);
+app.route('/settings', settingsRouter);
 
 const PORT = Number(process.env.PORT ?? 3001);
 
