@@ -70,6 +70,69 @@ function eventTextColor(ev: AgentEvent): string {
   return "#F5F5F7";
 }
 
+// ─── Attack Classification ────────────────────────────────────────────────────
+
+const RISK_SIGNAL_LABELS: Record<string, string> = {
+  'prompt_injection_chain': 'Prompt injection',
+  'data_exfiltration': 'Data exfiltration',
+  'external_transmission': 'External transmission',
+  'pii_exposure': 'PII exposure',
+  'goal_deviation': 'Goal deviation',
+  'possible_injection': 'Injection attempt',
+  'privilege_escalation': 'Privilege escalation',
+  'high_value_action': 'High-value action',
+  'authority_impersonation': 'Authority impersonation',
+  'bulk_pii_access': 'Bulk PII access',
+  'compliance_framing': 'Compliance bypass',
+  'unauthorized_bulk_access': 'Unauthorized bulk access',
+};
+
+interface AttackClassification {
+  label: string;
+  narrative: string;
+  severity: 'critical' | 'high' | 'medium';
+}
+
+function classifyAttack(riskSignals: string[]): AttackClassification | null {
+  const signals = new Set(riskSignals.filter(s => !s.startsWith('policy:')));
+  if (signals.size === 0) return null;
+
+  if (signals.has('prompt_injection_chain') || (signals.has('possible_injection') && signals.has('data_exfiltration'))) {
+    return { label: 'Prompt Injection', narrative: 'Malicious instructions embedded in input are redirecting the agent to exfiltrate data.', severity: 'critical' };
+  }
+  if (signals.has('authority_impersonation')) {
+    return { label: 'Authority Impersonation', narrative: 'Request impersonates executive authority to bypass approval controls.', severity: 'critical' };
+  }
+  if (signals.has('compliance_framing')) {
+    return { label: 'Compliance Bypass', narrative: 'Legal framing is being used to coerce the agent into unauthorized data export.', severity: 'critical' };
+  }
+  if (signals.has('data_exfiltration') && signals.has('external_transmission')) {
+    return { label: 'Data Exfiltration', narrative: 'Agent is attempting to transmit internal data to an external recipient.', severity: 'critical' };
+  }
+  if (signals.has('bulk_pii_access') || (signals.has('pii_exposure') && signals.has('privilege_escalation'))) {
+    return { label: 'Bulk PII Access', narrative: 'Agent is accessing multiple sensitive customer records in a suspicious pattern.', severity: 'high' };
+  }
+  if (signals.has('goal_deviation') && signals.has('possible_injection')) {
+    return { label: 'Injection Attempt', narrative: 'Agent has deviated significantly from its assigned task — prompt injection likely.', severity: 'high' };
+  }
+  if (signals.has('privilege_escalation')) {
+    return { label: 'Privilege Escalation', narrative: 'Agent is attempting to access resources outside its authorized scope.', severity: 'high' };
+  }
+  if (signals.has('high_value_action')) {
+    return { label: 'High-Value Action', narrative: 'Financial action exceeds autonomous authorization threshold — human review required.', severity: 'medium' };
+  }
+  if (signals.has('possible_injection') || signals.has('goal_deviation')) {
+    return { label: 'Suspicious Deviation', narrative: 'Agent behavior deviates from its assigned task.', severity: 'medium' };
+  }
+  return null;
+}
+
+function attackStyle(severity: 'critical' | 'high' | 'medium') {
+  if (severity === 'critical') return { bg: 'rgba(255,90,90,0.08)', border: 'rgba(255,90,90,0.35)', color: '#FF5A5A', dot: 'bg-[#FF5A5A]' };
+  if (severity === 'high')     return { bg: 'rgba(255,150,50,0.08)', border: 'rgba(255,150,50,0.35)', color: '#FF9633', dot: 'bg-[#FF9633]' };
+  return                              { bg: 'rgba(247,185,85,0.08)', border: 'rgba(247,185,85,0.35)', color: '#F7B955', dot: 'bg-[#F7B955]' };
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string) => void }) {
@@ -244,6 +307,8 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
 
   const selectedDecision = selected && isDecision(selected) ? getVerdict(selected) : null;
   const selectedThinking = selected ? thinkingMap[selected.id] ?? "" : "";
+  const selectedToolCall = selected ? events.find(e => e.seq === selected.seq - 1 && e.type === 'tool_call') : null;
+  const selectedAttack = selectedDecision ? classifyAttack(selectedDecision.riskSignals ?? []) : null;
 
   return (
     <div
@@ -511,8 +576,19 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
                 {isDecision(ev) && (() => {
                   const d = ev.payload as unknown as DecisionPayload;
                   const isPolicy = d.source === "policy";
+                  const attack = classifyAttack(d.riskSignals ?? []);
+                  const showAttackChip = attack && (d.verdict === 'BLOCK' || d.verdict === 'PAUSE');
+                  const st = showAttackChip ? attackStyle(attack.severity) : null;
                   return (
                     <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                      {showAttackChip && st && (
+                        <span
+                          className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded"
+                          style={{ background: st.bg, color: st.color, border: `1px solid ${st.border}` }}
+                        >
+                          ⚡ {attack.label.toUpperCase()}
+                        </span>
+                      )}
                       <span
                         className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded"
                         style={{
@@ -531,9 +607,11 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
                           CACHED
                         </span>
                       )}
-                      <span className="font-mono text-[11px] truncate max-w-[160px]" style={{ color: "#8A8A93" }}>
-                        {d.reasoning.slice(0, 45)}
-                      </span>
+                      {!showAttackChip && (
+                        <span className="font-mono text-[11px] truncate max-w-[160px]" style={{ color: "#8A8A93" }}>
+                          {d.reasoning.slice(0, 45)}
+                        </span>
+                      )}
                     </div>
                   );
                 })()}
@@ -565,6 +643,41 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
               </div>
             ) : (
               <div className="px-4 py-4 space-y-4 animate-fade-in">
+                {/* Attack Detection Panel */}
+                {selectedAttack && selectedDecision && selectedDecision.verdict !== 'ALLOW' && (() => {
+                  const st = attackStyle(selectedAttack.severity);
+                  const toolArgs = (selectedToolCall?.payload?.args ?? {}) as Record<string, unknown>;
+                  const toolName = selectedToolCall?.payload?.tool as string | undefined;
+                  return (
+                    <div className="rounded-lg p-3" style={{ background: st.bg, border: `1px solid ${st.border}` }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`w-2 h-2 rounded-full shrink-0 animate-pulse ${st.dot}`} />
+                        <span className="text-[11px] font-mono font-bold tracking-widest" style={{ color: st.color }}>
+                          ⚡ {selectedAttack.label.toUpperCase()} DETECTED
+                        </span>
+                      </div>
+                      <p className="text-xs font-mono leading-relaxed" style={{ color: st.color, opacity: 0.85 }}>
+                        {selectedAttack.narrative}
+                      </p>
+                      {toolName === 'send_email' && typeof toolArgs.to === 'string' && (
+                        <p className="text-[11px] font-mono mt-2 pt-2" style={{ color: st.color, opacity: 0.6, borderTop: `1px solid ${st.border}` }}>
+                          Destination: {toolArgs.to}
+                        </p>
+                      )}
+                      {toolName === 'apply_refund' && typeof toolArgs.amount === 'number' && (
+                        <p className="text-[11px] font-mono mt-2 pt-2" style={{ color: st.color, opacity: 0.6, borderTop: `1px solid ${st.border}` }}>
+                          Amount at risk: ${toolArgs.amount.toLocaleString()}
+                        </p>
+                      )}
+                      {toolName === 'query_customers' && (
+                        <p className="text-[11px] font-mono mt-2 pt-2" style={{ color: st.color, opacity: 0.6, borderTop: `1px solid ${st.border}` }}>
+                          Action: Unfiltered customer dump (all records)
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Verdict + source badge */}
                 {selectedDecision && (() => {
                   const isPolicy = selectedDecision.source === "policy";
@@ -616,7 +729,7 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
                                 className="text-[10px] font-mono px-1.5 py-0.5 rounded"
                                 style={{ background: "#0A0A0D", color: "#FF5A5A" }}
                               >
-                                {s}
+                                {RISK_SIGNAL_LABELS[s] ?? s.replace(/_/g, ' ')}
                               </span>
                             ))}
                           </div>

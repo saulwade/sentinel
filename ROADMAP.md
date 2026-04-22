@@ -208,12 +208,12 @@ Leyenda: `[ ]` pendiente · `[x]` hecho · ⚠️ Opus 4.7 · ⏱️ duración e
 > Objetivo: convertir un proyecto técnicamente sólido en algo que gana.
 > Orden de implementación es crítico — no saltarse pasos.
 
-- [ ] **4.9 Attack Storytelling** ⏱️ 3h · Sonnet · **P0 — implementar primero**
-  - [ ] Función `classifyAttack(riskSignals)` → devuelve `{ label, description, severity }` con texto legible ("Prompt Injection", "Data Exfiltration Attempt", "Authority Impersonation")
-  - [ ] En LiveView event list: cuando `riskSignals` incluye señales de ataque, mostrar chip de ataque encima del verdict badge (ej. `⚠ PROMPT INJECTION`)
-  - [ ] En Inspector: panel prominente "Attack Detected" (fondo rojo oscuro) con: tipo de ataque, qué intentó hacer en 1 línea, dominio/recipient objetivo si aplica
-  - [ ] Traducción human-readable de `riskSignals` → badges con texto claro (no `prompt_injection_chain`, sino `Prompt injection`)
-  - [ ] Demo cache: añadir `attackLabel` y `attackNarrative` a entradas de BLOCK existentes
+- [x] **4.9 Attack Storytelling** ⏱️ 3h · Sonnet · **P0 — implementar primero**
+  - [x] Función `classifyAttack(riskSignals)` → devuelve `{ label, narrative, severity }` para Prompt Injection / Authority Impersonation / Compliance Bypass / Data Exfiltration / Bulk PII Access / High-Value Action
+  - [x] En LiveView event list: chip `⚡ ATTACK TYPE` antes del badge POLICY/OPUS en eventos BLOCK/PAUSE con señales de ataque
+  - [x] En Inspector: panel "⚡ ATTACK DETECTED" (bg rojo/naranja/amarillo según severity) con narrative + destino/monto del tool call precedente
+  - [x] Badges de riskSignals → texto legible (no `prompt_injection_chain` sino `Prompt injection`)
+  - [x] Demo cache: 14 entradas nuevas para escenarios CEO, GDPR + fase de injection del Support (cust_e01/e02/e03, $47k/$12k/$8.5k refunds, emails externos)
 
 - [ ] **4.10 Counterfactual en BLOCK** ⏱️ 3h · Sonnet · **P0**
   - [ ] Campo `counterfactual` ya existe en `DecisionPayload` — poblarlo en demo cache para todas las entradas BLOCK
