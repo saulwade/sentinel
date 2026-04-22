@@ -215,12 +215,13 @@ Leyenda: `[ ]` pendiente · `[x]` hecho · ⚠️ Opus 4.7 · ⏱️ duración e
   - [x] Badges de riskSignals → texto legible (no `prompt_injection_chain` sino `Prompt injection`)
   - [x] Demo cache: 14 entradas nuevas para escenarios CEO, GDPR + fase de injection del Support (cust_e01/e02/e03, $47k/$12k/$8.5k refunds, emails externos)
 
-- [ ] **4.10 Counterfactual en BLOCK** ⏱️ 3h · Sonnet · **P0**
-  - [ ] Campo `counterfactual` ya existe en `DecisionPayload` — poblarlo en demo cache para todas las entradas BLOCK
-  - [ ] Formato simplificado: `{ narration: string, impacts: string[] }` (narración 1-2 oraciones + 2-3 bullets de daño concreto: dinero, PII, destino externo)
-  - [ ] En Inspector: panel "Without Sentinel" (fondo rojo muy oscuro, borde rojo) debajo del reasoning box — aparece solo si `counterfactual` presente
-  - [ ] Para LIVE OPUS: llamada Opus separada con thinking 2k, solo cuando `verdict === 'BLOCK'`, resultado se agrega al decision event
-  - [ ] No requiere nuevos endpoints — el campo viaja en el event payload existente
+- [x] **4.10 Counterfactual en BLOCK** ⏱️ 3h · Sonnet · **P0**
+  - [x] `CachedVerdict` extendido con campo `counterfactual?` opcional
+  - [x] `decisionPayload` pasa `counterfactual` desde cache al evento SSE
+  - [x] Formato: `{ narration, simulatedSteps[].outcome, damageSummary }` — 1-2 oraciones + 3 bullets + resumen bold
+  - [x] Panel "Without Sentinel" en Inspector (bg rojo oscuro): narración → bullets → damage summary en rojo
+  - [x] 6 entradas BLOCK con counterfactual completo: phishing exfil, support $47k, CEO exfil, CEO $12k, GDPR exfil, GDPR $8.5k
+  - [ ] Live OPUS path: llamada secundaria a Opus cuando `verdict === 'BLOCK'` (bonus si sobra tiempo)
 
 - [ ] **4.11 Recommendations → Policy adoption** ⏱️ 3h · Sonnet · **P0**
   - [ ] En `Replay.tsx`: conectar `GET /analysis/:runId` y mostrar el panel de análisis completo (hoy no se muestra en ningún lado)

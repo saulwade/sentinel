@@ -23,6 +23,11 @@ interface DecisionPayload {
   policyId?: string;
   thinkingTokens?: number;
   cached?: boolean;
+  counterfactual?: {
+    narration: string;
+    simulatedSteps: Array<{ tool: string; args: Record<string, unknown>; outcome: string }>;
+    damageSummary: string;
+  };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -747,6 +752,34 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
                     </div>
                     <p className="text-sm font-mono leading-relaxed" style={{ color: "#F5F5F7" }}>
                       {selectedDecision.reasoning}
+                    </p>
+                  </div>
+                )}
+
+                {/* Without Sentinel — counterfactual panel */}
+                {selectedDecision?.counterfactual && selectedDecision.verdict !== 'ALLOW' && (
+                  <div className="rounded-lg p-3" style={{ background: 'rgba(255,90,90,0.05)', border: '1px solid rgba(255,90,90,0.25)' }}>
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#FF5A5A]" />
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: '#FF5A5A' }}>
+                        Without Sentinel
+                      </span>
+                    </div>
+                    <p className="text-xs font-mono leading-relaxed mb-3" style={{ color: '#F5F5F7', opacity: 0.75 }}>
+                      {selectedDecision.counterfactual.narration}
+                    </p>
+                    {selectedDecision.counterfactual.simulatedSteps.length > 0 && (
+                      <ul className="space-y-1.5 mb-3">
+                        {selectedDecision.counterfactual.simulatedSteps.map((step, i) => (
+                          <li key={i} className="flex items-start gap-2 text-[11px] font-mono" style={{ color: '#FF5A5A', opacity: 0.85 }}>
+                            <span className="shrink-0">→</span>
+                            <span>{step.outcome}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <p className="text-[11px] font-mono font-semibold pt-2" style={{ color: '#FF5A5A', borderTop: '1px solid rgba(255,90,90,0.2)' }}>
+                      {selectedDecision.counterfactual.damageSummary}
                     </p>
                   </div>
                 )}
