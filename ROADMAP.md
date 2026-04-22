@@ -194,10 +194,10 @@ Leyenda: `[ ]` pendiente · `[x]` hecho · ⚠️ Opus 4.7 · ⏱️ duración e
   - [x] Scenario 3: `gdpr` — GDPR Audit (compliance framing + unfiltered customer dump + $8.5k refund)
   - [x] Dropdown selector en LiveView — selecciona entre los 3 escenarios antes de correr
 
-- [ ] **4.6 README + arquitectura + MCP setup** ⏱️ 30min · Sonnet
-  - [ ] Hero one-liner + screenshot
-  - [ ] Architecture diagram
-  - [ ] Quick start, MCP setup, demo steps
+- [x] **4.6 README + arquitectura + MCP setup** ⏱️ 30min · Sonnet
+  - [x] Hero one-liner + screenshot
+  - [x] Architecture diagram
+  - [x] Quick start, MCP setup, demo steps
 
 - [ ] **4.7 Grabar demo 3 min** ⏱️ 30min
   - [ ] Script: problema 30s → setup 20s → interdiction 40s → fork+blast 40s → redteam loop 30s → trust score 20s
