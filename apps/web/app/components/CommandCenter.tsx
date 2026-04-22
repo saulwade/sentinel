@@ -169,7 +169,7 @@ export default function CommandCenter({ onNavigate, onRunStarted }: CommandCente
       });
       const run = await res.json();
       onRunStarted?.(run.id);
-      onNavigate("Live");
+      onNavigate("Runtime");
     } catch {}
     setRunningAgent(false);
   }
@@ -331,7 +331,7 @@ export default function CommandCenter({ onNavigate, onRunStarted }: CommandCente
                 <RunRow
                   key={run.runId}
                   run={run}
-                  onClick={() => onNavigate("Live")}
+                  onClick={() => onNavigate("Runtime")}
                 />
               ))}
             </div>
