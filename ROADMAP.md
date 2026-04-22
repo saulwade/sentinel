@@ -244,18 +244,45 @@ Leyenda: `[ ]` pendiente · `[x]` hecho · ⚠️ Opus 4.7 · ⏱️ duración e
   - [x] Gris: `No runs to test against` si `totalRuns === 0`
   - [x] No requiere Opus — engine determinístico puro
 
-- [ ] **4.14 Grabar demo 3 min** ⏱️ 45min · **manual**
-  - [ ] Script actualizado: problema 20s → CEO scenario run 30s → BLOCK con attack story + counterfactual 30s → Replay + análisis + "Harden with Policy" 40s → Red Team loop + bypass + synthesize + test simulator 40s → Trust Score sube 20s
+## DÍA 4C — Vie 25 abr · Claridad + Polish de demo 💎
+
+> Objetivo: que un juez no-técnico entienda el valor en <10 segundos.
+> Todo lo de aquí es UI — sin nuevos endpoints, sin Opus, sin arquitectura.
+
+- [ ] **4.16 Better decision labels** ⏱️ 30min · Sonnet · **P0**
+  - [ ] En LiveView event list: bajo el label `BLOCK` / `PAUSE`, agregar subtexto gris con attack label si existe — `BLOCK · Data exfiltration` / `PAUSE · High-value action`
+  - [ ] Actualizar `eventLabel()` para incluir attack type cuando aplica
+  - [ ] Aplica solo si `classifyAttack()` devuelve non-null — no tocar los ALLOW
+
+- [ ] **4.17 Run summary banner** ⏱️ 45min · Sonnet · **P0**
+  - [ ] En LiveView: cuando `status === 'done'`, mostrar banner de 2 líneas sobre el event list
+  - [ ] Título: "Run complete — Sentinel active"
+  - [ ] Body: "Prevented $X · Blocked N exfiltration attempt(s) · N interdictions" — datos del blast radius del run
+  - [ ] Fetch `GET /analysis/:runId/blast` al completar el run y usar moneyInterdicted + externalEmailsBlocked + actionsInterdicted
+  - [ ] Descartable con X — desaparece al iniciar otro run
+
+- [ ] **4.18 Damage Prevented hero en Command Center** ⏱️ 30min · Sonnet · **P1**
+  - [ ] Mover `moneyInterdicted` aggregate a la posición hero (primera card, número grande en rojo/verde)
+  - [ ] Label: "Potential Loss Prevented" con subtítulo en gris
+  - [ ] Si es 0: mostrar "No runs yet" en gris
+
+- [ ] **4.19 Enterprise naming** ⏱️ 15min · Sonnet · **P1**
+  - [ ] Agent context banner en Shell: `support-agent` → `Support Agent · Tier 1`
+  - [ ] Por escenario: CEO → `CEO Override · Executive`, GDPR → `GDPR Audit · Compliance`
+  - [ ] Command Center run list: nombre del agentConfig en formato legible
+
+- [ ] **4.20 Grabar demo 3 min** ⏱️ 45min · **manual**
+  - [ ] Script: problema 20s → selecciona CEO scenario + Run 20s → BLOCK con `⚡ AUTHORITY IMPERSONATION` chip + inspector (attack panel + counterfactual) 35s → run summary banner 10s → Replay → Analyze (Opus thinking) → Harden → Adopt 40s → Red Team loop 30s → Trust Score + Command Center hero 20s
   - [ ] OBS + voiceover
   - [ ] Subir MP4
 
-- [ ] **4.15 Deploy** ⏱️ 60min · Sonnet · **P1**
+- [ ] **4.21 Deploy** ⏱️ 60min · Sonnet · **P1**
   - [ ] Vercel apps/web
   - [ ] Fly.io / Render apps/engine
   - [ ] Env vars Anthropic
   - [ ] URL pública en README
 
-**DoD Día 4B:** juez abre app → en 10 segundos entiende que hay un ataque y que fue detenido → puede seguir el flujo completo sin explicación → el loop ataque→análisis→policy queda cerrado visualmente.
+**DoD Día 4C:** juez ve la app por primera vez → stat card dice "$59,820 prevented" → hace click en Runtime → ve `⚡ AUTHORITY IMPERSONATION DETECTED` con monto → lee "Without Sentinel" → entiende todo sin explicación.
 
 ---
 
@@ -269,18 +296,20 @@ Leyenda: `[ ]` pendiente · `[x]` hecho · ⚠️ Opus 4.7 · ⏱️ duración e
 
 ## Orden de sacrificio si algo se atrasa
 
-1. 4.15 Deploy (URL pública no es requisito)
-2. 4.13 Policy Simulator (impresiona pero demo funciona sin él)
-3. 4.12 Platform framing (estético, no funcional)
+1. 4.21 Deploy (URL pública no es requisito)
+2. 4.19 Enterprise naming (cosmético)
+3. 4.18 Damage Prevented hero (ya se ve en stats)
 4. 4.10 Counterfactual live Opus (mantener solo versión pre-cacheada)
 
-**NO cortables:** 4.9 Attack Storytelling · 4.10 Counterfactual (versión cache) · 4.11 Recommendations → Policy · todos los features de Días 1-3.
+**NO cortables:** 4.16 · 4.17 · 4.9 · 4.10 · 4.11 · todos los features de Días 1-3.
 
-**KILL — no tocar bajo ninguna circunstancia:**
-- Multi-agent view / org graph / blast map
-- Agent Memory Diff
-- ESCALATE workflow
-- Refactorizar tipos o runner
+**KILL definitivo — evaluado y descartado:**
+- Action Confidence score (#3) — hace el sistema parecer incierto
+- Highlight texto injection (#10) — ticket body no se muestra en UI
+- Policy impact after adoption (#7) — redundante con simulator
+- Latency badge (#15) — dato de ingeniería, no de negocio
+- Before vs After Sentinel (#2) — es narración oral, no UI
+- Multi-agent / org graph / Agent Memory Diff / ESCALATE / refactors
 
 ---
 
