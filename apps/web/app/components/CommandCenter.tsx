@@ -53,8 +53,9 @@ function gradeColor(g: string) {
 }
 
 function agentLabel(config: string) {
-  if (config === "support-agent") return "Support Agent";
-  return "Corp Assistant";
+  if (config === "support-agent") return "Support Agent · Tier 1";
+  if (config === "corp-assistant") return "Corp Assistant · Security";
+  return config;
 }
 
 function timeAgo(ts: number) {
@@ -70,17 +71,20 @@ function timeAgo(ts: number) {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StatCard({
-  label, value, sub, accent,
-}: { label: string; value: string; sub?: string; accent?: string }) {
+  label, value, sub, accent, hero,
+}: { label: string; value: string; sub?: string; accent?: string; hero?: boolean }) {
   return (
     <div
       className="flex flex-col gap-1 p-4 rounded-lg"
-      style={{ background: "#0D0D12", border: "1px solid #262630" }}
+      style={{
+        background: hero ? "rgba(255,90,90,0.04)" : "#0D0D12",
+        border: `1px solid ${hero ? "rgba(255,90,90,0.25)" : "#262630"}`,
+      }}
     >
-      <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
+      <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: hero ? "#FF5A5A" : "#8A8A93", opacity: hero ? 0.7 : 1 }}>
         {label}
       </span>
-      <span className="text-2xl font-mono font-bold" style={{ color: accent ?? "#F5F5F7" }}>
+      <span className={`${hero ? "text-3xl" : "text-2xl"} font-mono font-bold`} style={{ color: accent ?? "#F5F5F7" }}>
         {value}
       </span>
       {sub && (
@@ -288,10 +292,11 @@ export default function CommandCenter({ onNavigate, onRunStarted }: CommandCente
         {/* ── Stat cards ──────────────────────────────────────────────── */}
         <div className="grid grid-cols-4 gap-3">
           <StatCard
-            label="Active policies"
-            value={String(stats?.policies.active ?? "—")}
-            sub={stats ? `${stats.policies.bySource.autoSynthesized} auto-synthesized` : undefined}
-            accent="#818CF8"
+            label="Potential Loss Prevented"
+            value={stats ? `$${stats.aggregate.totalMoneyInterdicted.toLocaleString()}` : "—"}
+            sub={stats?.aggregate.totalMoneyInterdicted === 0 ? "Run a scenario to see results" : "unauthorized transfers blocked"}
+            accent="#FF5A5A"
+            hero
           />
           <StatCard
             label="Interdictions"
@@ -300,10 +305,10 @@ export default function CommandCenter({ onNavigate, onRunStarted }: CommandCente
             accent="#F7B955"
           />
           <StatCard
-            label="Money blocked"
-            value={stats ? `$${stats.aggregate.totalMoneyInterdicted.toLocaleString()}` : "—"}
-            sub="unauthorized refunds"
-            accent="#2DD4A4"
+            label="Active policies"
+            value={String(stats?.policies.active ?? "—")}
+            sub={stats ? `${stats.policies.bySource.autoSynthesized} auto-synthesized` : undefined}
+            accent="#818CF8"
           />
           <StatCard
             label="Total runs"

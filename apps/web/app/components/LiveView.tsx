@@ -167,7 +167,14 @@ function attackStyle(severity: 'critical' | 'high' | 'medium') {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string) => void }) {
+const SCENARIO_LABELS: Record<string, string> = {
+  support: "Support Agent · Tier 1",
+  ceo:     "CEO Override · Executive",
+  gdpr:    "GDPR Audit · Compliance",
+  phishing: "Corp Assistant · Security",
+};
+
+export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string, label: string) => void }) {
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [runId, setRunId] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "running" | "done">("idle");
@@ -276,7 +283,7 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string)
     });
     const run = await res.json();
     setRunId(run.id);
-    onRunStarted?.(run.id);
+    onRunStarted?.(run.id, SCENARIO_LABELS[scenario] ?? "Sentinel Agent");
 
     const es = new EventSource(`${ENGINE}/runs/${run.id}/events`);
     esRef.current = es;

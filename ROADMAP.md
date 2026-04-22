@@ -262,15 +262,15 @@ Leyenda: `[ ]` pendiente · `[x]` hecho · ⚠️ Opus 4.7 · ⏱️ duración e
   - [x] Banner verde sobre el event list, descartable con ×
   - [x] Se resetea al iniciar un nuevo run
 
-- [ ] **4.18 Damage Prevented hero en Command Center** ⏱️ 30min · Sonnet · **P1**
-  - [ ] Mover `moneyInterdicted` aggregate a la posición hero (primera card, número grande en rojo/verde)
-  - [ ] Label: "Potential Loss Prevented" con subtítulo en gris
-  - [ ] Si es 0: mostrar "No runs yet" en gris
+- [x] **4.18 Damage Prevented hero en Command Center** ⏱️ 30min · Sonnet · **P1**
+  - [x] Primera stat card: "Potential Loss Prevented" — `text-3xl` en rojo, borde rojo sutil, posición hero
+  - [x] `StatCard` recibe prop `hero` — bg rojo translúcido, número más grande
+  - [x] Si es 0: subtítulo "Run a scenario to see results"
 
-- [ ] **4.19 Enterprise naming** ⏱️ 15min · Sonnet · **P1**
-  - [ ] Agent context banner en Shell: `support-agent` → `Support Agent · Tier 1`
-  - [ ] Por escenario: CEO → `CEO Override · Executive`, GDPR → `GDPR Audit · Compliance`
-  - [ ] Command Center run list: nombre del agentConfig en formato legible
+- [x] **4.19 Enterprise naming** ⏱️ 15min · Sonnet · **P1**
+  - [x] `SCENARIO_LABELS` en LiveView: `support` → "Support Agent · Tier 1", `ceo` → "CEO Override · Executive", `gdpr` → "GDPR Audit · Compliance"
+  - [x] `onRunStarted` ahora pasa `(id, label)` — Shell muestra el label dinámico en el header
+  - [x] `agentLabel()` en CommandCenter: `support-agent` → "Support Agent · Tier 1"
 
 - [ ] **4.20 Grabar demo 3 min** ⏱️ 45min · **manual**
   - [ ] Script: problema 20s → selecciona CEO scenario + Run 20s → BLOCK con `⚡ AUTHORITY IMPERSONATION` chip + inspector (attack panel + counterfactual) 35s → run summary banner 10s → Replay → Analyze (Opus thinking) → Harden → Adopt 40s → Red Team loop 30s → Trust Score + Command Center hero 20s

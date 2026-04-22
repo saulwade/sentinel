@@ -121,10 +121,12 @@ function HelpModal({ onClose }: { onClose: () => void }) {
 export default function Shell() {
   const [activeTab, setActiveTab] = useState<Tab>("Command Center");
   const [runId, setRunId] = useState<string | null>(null);
+  const [agentLabel, setAgentLabel] = useState<string>("Sentinel Agent");
   const [showHelp, setShowHelp] = useState(false);
 
-  const handleRunStarted = useCallback((id: string) => {
+  const handleRunStarted = useCallback((id: string, label?: string) => {
     setRunId(id);
+    if (label) setAgentLabel(label);
   }, []);
 
   useEffect(() => {
@@ -199,7 +201,7 @@ export default function Shell() {
           {runId && (
             <>
               <span className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ color: "#8A8A93", background: "#14141A" }}>
-                support-agent
+                {agentLabel}
               </span>
               <span className="font-mono text-[10px]" style={{ color: "#8A8A93" }}>
                 {runId.slice(0, 8)}
