@@ -174,7 +174,15 @@ const SCENARIO_LABELS: Record<string, string> = {
   phishing: "Corp Assistant · Security",
 };
 
-export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string, label: string) => void }) {
+export default function LiveView({
+  onRunStarted,
+  pendingRun,
+  onPendingRunConsumed,
+}: {
+  onRunStarted?: (id: string, label: string) => void;
+  pendingRun?: boolean;
+  onPendingRunConsumed?: () => void;
+}) {
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [runId, setRunId] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "running" | "done">("idle");
@@ -203,6 +211,15 @@ export default function LiveView({ onRunStarted }: { onRunStarted?: (id: string,
   useEffect(() => {
     fetch(`${ENGINE}/settings`).then((r) => r.json()).then((d) => setDemoCache(d.demoCache ?? true)).catch(() => {});
   }, []);
+
+  // Auto-start when triggered from Command Center
+  useEffect(() => {
+    if (pendingRun && status === "idle") {
+      onPendingRunConsumed?.();
+      startRun();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingRun]);
 
   async function toggleDemoCache() {
     const next = !demoCache;

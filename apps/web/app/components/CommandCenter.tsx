@@ -137,13 +137,12 @@ function RunRow({ run, onClick }: { run: RunSummary; onClick: () => void }) {
 
 interface CommandCenterProps {
   onNavigate: (tab: string) => void;
-  onRunStarted?: (id: string) => void;
+  onRequestRun?: () => void;
 }
 
-export default function CommandCenter({ onNavigate, onRunStarted }: CommandCenterProps) {
+export default function CommandCenter({ onNavigate, onRequestRun }: CommandCenterProps) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [runningAgent, setRunningAgent] = useState(false);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -159,19 +158,9 @@ export default function CommandCenter({ onNavigate, onRunStarted }: CommandCente
     return () => clearInterval(interval);
   }, [fetchStats]);
 
-  async function runAgent() {
-    setRunningAgent(true);
-    try {
-      const res = await fetch(`${ENGINE}/runs/start`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "scenario", scenario: "support" }),
-      });
-      const run = await res.json();
-      onRunStarted?.(run.id);
-      onNavigate("Runtime");
-    } catch {}
-    setRunningAgent(false);
+  function runAgent() {
+    onRequestRun?.();
+    onNavigate("Runtime");
   }
 
   const trust = stats?.trust;
@@ -266,11 +255,11 @@ export default function CommandCenter({ onNavigate, onRunStarted }: CommandCente
           <div className="flex flex-col gap-2 shrink-0">
             <button
               onClick={runAgent}
-              disabled={runningAgent}
+              disabled={false}
               className="px-4 py-2 rounded text-xs font-mono font-medium transition-all active:scale-95 hover:brightness-110 disabled:opacity-50"
               style={{ background: "#A78BFA", color: "#0A0A0D" }}
             >
-              {runningAgent ? "Starting..." : "▶  Run Agent"}
+              ▶  Run Agent
             </button>
             <button
               onClick={() => onNavigate("Pre-flight")}

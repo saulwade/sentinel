@@ -123,10 +123,16 @@ export default function Shell() {
   const [runId, setRunId] = useState<string | null>(null);
   const [agentLabel, setAgentLabel] = useState<string>("Sentinel Agent");
   const [showHelp, setShowHelp] = useState(false);
+  const [pendingRun, setPendingRun] = useState(false);
 
   const handleRunStarted = useCallback((id: string, label?: string) => {
     setRunId(id);
     if (label) setAgentLabel(label);
+  }, []);
+
+  const handleRequestRun = useCallback(() => {
+    setPendingRun(true);
+    setActiveTab("Runtime");
   }, []);
 
   useEffect(() => {
@@ -251,10 +257,16 @@ export default function Shell() {
             {tab === "Command Center" && (
               <CommandCenter
                 onNavigate={(t) => setActiveTab(t as Tab)}
-                onRunStarted={handleRunStarted}
+                onRequestRun={handleRequestRun}
               />
             )}
-            {tab === "Runtime" && <LiveView onRunStarted={handleRunStarted} />}
+            {tab === "Runtime" && (
+              <LiveView
+                onRunStarted={handleRunStarted}
+                pendingRun={pendingRun}
+                onPendingRunConsumed={() => setPendingRun(false)}
+              />
+            )}
             {tab === "Replay" && <Replay runId={runId} visible={activeTab === "Replay"} />}
             {tab === "Pre-flight" && <Preflight />}
             {tab === "Red Team" && <RedTeam />}
