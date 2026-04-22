@@ -7,8 +7,16 @@ import Replay from "./Replay";
 import Preflight from "./Preflight";
 import RedTeam from "./RedTeam";
 
-const TABS = ["Command Center", "Live", "Replay", "Pre-flight", "Red Team"] as const;
+const TABS = ["Command Center", "Runtime", "Replay", "Pre-flight", "Red Team"] as const;
 type Tab = (typeof TABS)[number];
+
+const TAB_SUBTITLES: Record<Tab, string> = {
+  "Command Center": "Trust Score · Stats · Policy overview",
+  "Runtime":        "Live interception · Pre-cog · Approve/Deny",
+  "Replay":         "Timeline scrubber · Fork · Opus analysis",
+  "Pre-flight":     "Synthetic scenario simulator · Safety grade",
+  "Red Team":       "Adaptive attacker · Policy synthesis · Catalog",
+};
 
 // ─── Help modal ───────────────────────────────────────────────────────────────
 
@@ -154,9 +162,14 @@ export default function Shell() {
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
             </svg>
           </div>
-          <span className="font-mono text-sm font-medium tracking-widest" style={{ color: "#F5F5F7" }}>
-            SENTINEL
-          </span>
+          <div className="flex flex-col">
+            <span className="font-mono text-sm font-medium tracking-widest" style={{ color: "#F5F5F7" }}>
+              SENTINEL
+            </span>
+            <span className="font-mono text-[9px] tracking-widest" style={{ color: "#8A8A93" }}>
+              AI Agent Security Platform
+            </span>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -166,6 +179,7 @@ export default function Shell() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
+              title={TAB_SUBTITLES[tab]}
               className="px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 active:scale-95"
               style={{
                 background: isActive ? "#1C1C24" : "transparent",
@@ -175,7 +189,7 @@ export default function Shell() {
               }}
             >
               <span className="opacity-40 mr-1">{i + 1}</span>
-              {tab}
+              {tab === "Red Team" ? "Red Team & Policies" : tab}
             </button>
           );
         })}
@@ -238,7 +252,7 @@ export default function Shell() {
                 onRunStarted={handleRunStarted}
               />
             )}
-            {tab === "Live" && <LiveView onRunStarted={handleRunStarted} />}
+            {tab === "Runtime" && <LiveView onRunStarted={handleRunStarted} />}
             {tab === "Replay" && <Replay runId={runId} visible={activeTab === "Replay"} />}
             {tab === "Pre-flight" && <Preflight />}
             {tab === "Red Team" && <RedTeam />}

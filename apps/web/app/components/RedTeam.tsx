@@ -95,6 +95,8 @@ export default function RedTeam() {
   const [synthesizing, setSynthesizing] = useState<string | null>(null);
   const [synthesizedPolicies, setSynthesizedPolicies] = useState<Map<string, Policy>>(new Map());
   const [adoptedIds, setAdoptedIds] = useState<Set<string>>(new Set());
+  const [simLoading, setSimLoading] = useState<string | null>(null);
+  const [simResults, setSimResults] = useState<Map<string, { totalRuns: number; wouldBlock: number; wouldPause: number; falsePositives: number }>>(new Map());
 
   const fetchPolicies = useCallback(async () => {
     try {
@@ -193,6 +195,23 @@ export default function RedTeam() {
       }
     } catch {}
     setSynthesizing(null);
+  }
+
+  async function simulate(policy: Policy) {
+    if (simLoading) return;
+    setSimLoading(policy.id);
+    try {
+      const res = await fetch(`${ENGINE}/policies/simulate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ policy }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSimResults((prev) => new Map(prev).set(policy.id, data));
+      }
+    } catch {}
+    setSimLoading(null);
   }
 
   async function adopt(policy: Policy) {
@@ -487,6 +506,42 @@ export default function RedTeam() {
                           <p className="text-[11px] font-mono font-bold" style={{ color: "#F5F5F7" }}>{synth.name}</p>
                           <p className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>{synth.description}</p>
                           <p className="text-[10px] font-mono italic" style={{ color: "#818CF8" }}>{synth.reasoning}</p>
+                          {/* Policy Simulator */}
+                          {!isAdopted && (() => {
+                            const sim = simResults.get(synth.id);
+                            const isSimming = simLoading === synth.id;
+                            if (sim) {
+                              const fp = sim.falsePositives;
+                              const hits = sim.wouldBlock + sim.wouldPause;
+                              return (
+                                <div
+                                  className="flex items-center gap-1.5 px-2 py-1.5 rounded text-[10px] font-mono"
+                                  style={{
+                                    background: fp === 0 ? "rgba(45,212,164,0.06)" : "rgba(247,185,85,0.06)",
+                                    border: `1px solid ${fp === 0 ? "rgba(45,212,164,0.2)" : "rgba(247,185,85,0.2)"}`,
+                                  }}
+                                >
+                                  <span style={{ color: fp === 0 ? "#2DD4A4" : "#F7B955" }}>
+                                    {sim.totalRuns === 0
+                                      ? "No runs to test against"
+                                      : fp === 0
+                                      ? `✓ Would catch ${hits} attack${hits !== 1 ? "s" : ""} · 0 false positives`
+                                      : `⚠ Catches ${hits} · ${fp} false positive${fp !== 1 ? "s" : ""} on clean runs`}
+                                  </span>
+                                </div>
+                              );
+                            }
+                            return (
+                              <button
+                                onClick={() => simulate(synth)}
+                                disabled={isSimming}
+                                className="w-full py-1.5 rounded text-[10px] font-mono transition-all active:scale-95 hover:brightness-110 disabled:opacity-50"
+                                style={{ background: "#14141A", color: "#8A8A93", border: "1px solid #262630" }}
+                              >
+                                {isSimming ? "Testing…" : "Test against history →"}
+                              </button>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>

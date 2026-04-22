@@ -231,16 +231,18 @@ Leyenda: `[ ]` pendiente · `[x]` hecho · ⚠️ Opus 4.7 · ⏱️ duración e
   - [x] Botón "Adopt →" → `POST /policies` → badge "✓ Adopted" inline
   - [x] Loop completo: run → Replay → Analyze → Harden → Adopt → visible en Command Center
 
-- [ ] **4.12 Platform framing — renombrar tabs** ⏱️ 15min · Sonnet · **P1**
-  - [ ] `Shell.tsx`: `Live` → `Runtime` · `Replay` → `Replay` (queda igual) · `Red Team` → `Red Team & Policies` (ya está) · agregar subtítulo descriptivo en cada tab tooltip
-  - [ ] Header del Shell: subtítulo `"AI Agent Security Platform"` en gris debajo del logo
+- [x] **4.12 Platform framing — renombrar tabs** ⏱️ 15min · Sonnet · **P1**
+  - [x] `Shell.tsx`: `Live` → `Runtime` · `Red Team` muestra "Red Team & Policies" en label
+  - [x] Header: subtítulo `"AI Agent Security Platform"` en gris debajo de SENTINEL
+  - [x] `TAB_SUBTITLES` map con descripción en tooltip de cada tab
 
-- [ ] **4.13 Policy Simulator** ⏱️ 4h · Sonnet · **P1**
-  - [ ] `POST /policies/simulate` — recibe `Policy` draft + array de `runIds` (default: todos). Corre `evaluatePolicies([policy], toolCall)` sobre cada evento `tool_call` histórico. Responde: `{ matches, wouldBlock, wouldPause, wouldAllow, matchedEvents[] }`
-  - [ ] En `RedTeam.tsx`, dentro del policy preview modal: botón "Test against history →"
-  - [ ] Resultado: `✓ Would block 3 attacks · Allows 5 clean runs · 0 false positives`
-  - [ ] Si no hay runs históricos: mostrar mensaje "Run a scenario first to test coverage"
-  - [ ] No requiere Opus — engine determinístico puro
+- [x] **4.13 Policy Simulator** ⏱️ 4h · Sonnet · **P1**
+  - [x] `POST /policies/simulate` — corre `evaluatePolicies([policy], toolCall)` sobre todos los `tool_call` históricos de todos los runs. Responde: `{ totalRuns, wouldBlock, wouldPause, falsePositives, matchedEvents[] }`
+  - [x] En `RedTeam.tsx`: botón "Test against history →" en policy preview (antes de Adopt)
+  - [x] Verde: `✓ Would catch N attacks · 0 false positives`
+  - [x] Amarillo: `⚠ Catches N · M false positives on clean runs`
+  - [x] Gris: `No runs to test against` si `totalRuns === 0`
+  - [x] No requiere Opus — engine determinístico puro
 
 - [ ] **4.14 Grabar demo 3 min** ⏱️ 45min · **manual**
   - [ ] Script actualizado: problema 20s → CEO scenario run 30s → BLOCK con attack story + counterfactual 30s → Replay + análisis + "Harden with Policy" 40s → Red Team loop + bypass + synthesize + test simulator 40s → Trust Score sube 20s

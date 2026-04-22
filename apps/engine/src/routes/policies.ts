@@ -14,6 +14,10 @@
 import { Hono } from 'hono';
 import type { Policy } from '@sentinel/shared';
 import { getActivePolicies, adoptPolicy, revokePolicy } from '../interceptor.js';
+import { getAllRuns } from '../agent/runner.js';
+import { getAllEvents } from '../timetravel/snapshot.js';
+import { evaluatePolicies } from '../policies/engine.js';
+import { getWorld } from '../agent/world.js';
 
 export const policiesRouter = new Hono();
 
@@ -58,6 +62,87 @@ policiesRouter.delete('/:id', (c) => {
   const removed = revokePolicy(id);
   if (!removed) return c.json({ error: `policy "${id}" not found` }, 404);
   return c.json({ revoked: true, id });
+});
+
+// ─── Policy Simulator ─────────────────────────────────────────────────────────
+// Test a draft policy against historical runs before adopting it.
+// Returns: how many tool calls it would catch, how many it would false-positive on.
+
+policiesRouter.post('/simulate', async (c) => {
+  let policy: Policy;
+  try {
+    policy = await c.req.json<{ policy: Policy }>().then((b) => b.policy);
+  } catch {
+    return c.json({ error: 'body must be { policy: Policy }' }, 400);
+  }
+  if (!policy?.id || !Array.isArray(policy.when)) {
+    return c.json({ error: 'invalid policy' }, 400);
+  }
+
+  const runs = getAllRuns();
+  const world = getWorld(); // approximation — good enough for DSL evaluation
+
+  interface MatchedEvent {
+    runId: string;
+    seq: number;
+    tool: string;
+    args: Record<string, unknown>;
+    actualVerdict: string;
+    simulatedAction: string;
+  }
+
+  let wouldBlock = 0;
+  let wouldPause = 0;
+  let falsePositives = 0; // policy fires on events that were originally ALLOW
+  const matchedEvents: MatchedEvent[] = [];
+
+  for (const run of runs) {
+    const events = getAllEvents(run.id);
+    for (const ev of events) {
+      if (ev.type !== 'tool_call') continue;
+
+      const payload = ev.payload as Record<string, unknown>;
+      const call = {
+        tool: String(payload.tool ?? ''),
+        args: (payload.args ?? {}) as Record<string, unknown>,
+      };
+
+      const match = evaluatePolicies([policy], call, world);
+      if (!match) continue;
+
+      // Find the actual verdict for this tool call (next decision event)
+      const decisionEv = events.find(
+        (d) => d.type === 'decision' && d.seq === ev.seq + 1,
+      );
+      const actualVerdict = String(
+        (decisionEv?.payload as Record<string, unknown>)?.verdict ?? 'UNKNOWN',
+      );
+
+      if (match.action === 'block') wouldBlock++;
+      if (match.action === 'pause') wouldPause++;
+      if (actualVerdict === 'ALLOW') falsePositives++;
+
+      matchedEvents.push({
+        runId: run.id,
+        seq: ev.seq,
+        tool: call.tool,
+        args: call.args,
+        actualVerdict,
+        simulatedAction: match.action,
+      });
+    }
+  }
+
+  const totalMatches = wouldBlock + wouldPause;
+
+  return c.json({
+    totalRuns: runs.length,
+    totalMatches,
+    wouldBlock,
+    wouldPause,
+    falsePositives,
+    matchedEvents: matchedEvents.slice(0, 20), // cap at 20 for response size
+  });
 });
 
 policiesRouter.patch('/:id', async (c) => {
