@@ -52,6 +52,29 @@ interface ForkResult {
   narration: string;
 }
 
+interface Recommendation {
+  title: string;
+  rationale: string;
+  policyHint?: string;
+}
+
+interface RunAnalysis {
+  executiveSummary: string;
+  riskGrade: string;
+  recommendations: Recommendation[];
+  keyInterdictions: Array<{ seq: number; what: string; why: string; source: string }>;
+}
+
+interface Policy {
+  id: string;
+  name: string;
+  description: string;
+  action: string;
+  severity: string;
+  enabled: boolean;
+  conditions: unknown;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function eventColor(ev: AgentEvent): string {
@@ -114,12 +137,22 @@ export default function Replay({ runId, visible }: { runId: string | null; visib
   const [originalBlast, setOriginalBlast] = useState<BlastRadius | null>(null);
   const [forkBlast, setForkBlast] = useState<BlastRadius | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
+  const [analysis, setAnalysis] = useState<RunAnalysis | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisThinking, setAnalysisThinking] = useState("");
+  const [synthPreviews, setSynthPreviews] = useState<Map<number, Policy>>(new Map());
+  const [synthLoading, setSynthLoading] = useState<number | null>(null);
+  const [adoptedIds, setAdoptedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!runId || !visible) return;
     setForkResult(null);
     setOriginalBlast(null);
     setForkBlast(null);
+    setAnalysis(null);
+    setAnalysisThinking("");
+    setSynthPreviews(new Map());
+    setAdoptedIds(new Set());
     fetch(`${ENGINE}/timeline/${runId}`)
       .then((r) => r.json())
       .then((evts: AgentEvent[]) => {
@@ -209,6 +242,54 @@ export default function Replay({ runId, visible }: { runId: string | null; visib
       URL.revokeObjectURL(url);
     } catch {}
     setReportLoading(false);
+  }
+
+  function startAnalysis() {
+    if (!runId || analysisLoading) return;
+    setAnalysisLoading(true);
+    setAnalysis(null);
+    setAnalysisThinking("");
+    setSynthPreviews(new Map());
+    setAdoptedIds(new Set());
+    const es = new EventSource(`${ENGINE}/analysis/${runId}/stream`);
+    es.addEventListener("thinking_delta", (e) => {
+      setAnalysisThinking((prev) => prev + (e as MessageEvent).data);
+    });
+    es.addEventListener("result", (e) => {
+      setAnalysis(JSON.parse((e as MessageEvent).data) as RunAnalysis);
+      setAnalysisLoading(false);
+      es.close();
+    });
+    es.addEventListener("done", () => { setAnalysisLoading(false); es.close(); });
+    es.addEventListener("error", () => { setAnalysisLoading(false); es.close(); });
+  }
+
+  async function synthesizeRec(rec: Recommendation, idx: number) {
+    if (!runId || synthLoading !== null) return;
+    setSynthLoading(idx);
+    try {
+      const res = await fetch(`${ENGINE}/analysis/${runId}/synthesize-recommendation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ policyHint: rec.policyHint, title: rec.title }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { policy: Policy };
+        setSynthPreviews((prev) => new Map(prev).set(idx, data.policy));
+      }
+    } catch {}
+    setSynthLoading(null);
+  }
+
+  async function adoptPolicy(policy: Policy) {
+    try {
+      const res = await fetch(`${ENGINE}/policies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(policy),
+      });
+      if (res.ok) setAdoptedIds((prev) => new Set(prev).add(policy.id));
+    } catch {}
   }
 
   if (!runId) {
@@ -367,6 +448,135 @@ export default function Replay({ runId, visible }: { runId: string | null; visib
             {forking ? "Branching..." : "⎇  Branch from here"}
           </button>
         </div>
+      </div>
+
+      {/* ── Opus Analysis panel ──────────────────────────────────────── */}
+      <div className="shrink-0 border-b" style={{ borderColor: "#262630" }}>
+        <div className="px-4 py-2.5 flex items-center justify-between" style={{ borderBottom: "1px solid #1C1C24" }}>
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#A78BFA]" />
+            <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
+              Opus Analysis
+            </span>
+            {analysis && (
+              <span
+                className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded"
+                style={{
+                  background: analysis.riskGrade === "A+" || analysis.riskGrade === "A"
+                    ? "rgba(45,212,164,0.12)" : "rgba(247,185,85,0.12)",
+                  color: analysis.riskGrade === "A+" || analysis.riskGrade === "A" ? "#2DD4A4" : "#F7B955",
+                  border: `1px solid ${analysis.riskGrade === "A+" || analysis.riskGrade === "A" ? "rgba(45,212,164,0.3)" : "rgba(247,185,85,0.3)"}`,
+                }}
+              >
+                {analysis.riskGrade}
+              </span>
+            )}
+          </div>
+          {!analysis && (
+            <button
+              onClick={startAnalysis}
+              disabled={analysisLoading}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono font-medium transition-all active:scale-95 hover:brightness-110 disabled:opacity-50"
+              style={{ background: "rgba(167,139,250,0.1)", color: "#A78BFA", border: "1px solid rgba(167,139,250,0.3)" }}
+            >
+              <span className={analysisLoading ? "animate-spin" : ""}>◈</span>
+              {analysisLoading ? "Analyzing…" : "Analyze Run →"}
+            </button>
+          )}
+        </div>
+
+        {/* Thinking stream */}
+        {analysisLoading && (
+          <div className="px-4 py-3">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <span className="w-1 h-1 rounded-full bg-[#A78BFA] animate-pulse" />
+              <span className="text-[10px] font-mono" style={{ color: "#A78BFA" }}>Opus extended thinking…</span>
+            </div>
+            {analysisThinking && (
+              <p className="text-[10px] font-mono leading-relaxed" style={{ color: "#A78BFA", opacity: 0.6 }}>
+                {analysisThinking.slice(-400)}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Analysis result */}
+        {analysis && (
+          <div className="px-4 py-3 space-y-4">
+            <p className="text-xs font-mono leading-relaxed" style={{ color: "#F5F5F7", opacity: 0.85 }}>
+              {analysis.executiveSummary}
+            </p>
+
+            {analysis.recommendations.length > 0 && (
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-widest mb-2" style={{ color: "#8A8A93" }}>
+                  Hardening Recommendations
+                </div>
+                <div className="space-y-2">
+                  {analysis.recommendations.map((rec, idx) => {
+                    const preview = synthPreviews.get(idx);
+                    const isAdopted = preview ? adoptedIds.has(preview.id) : false;
+                    return (
+                      <div
+                        key={idx}
+                        className="rounded-lg p-3"
+                        style={{ background: "#14141A", border: "1px solid #1C1C24" }}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-mono font-semibold" style={{ color: "#F5F5F7" }}>{rec.title}</p>
+                            <p className="text-[11px] font-mono mt-0.5 leading-relaxed" style={{ color: "#8A8A93" }}>{rec.rationale}</p>
+                          </div>
+                          <div className="shrink-0">
+                            {isAdopted ? (
+                              <span className="text-[9px] font-mono" style={{ color: "#2DD4A4" }}>✓ Adopted</span>
+                            ) : rec.policyHint && !preview ? (
+                              <button
+                                onClick={() => synthesizeRec(rec, idx)}
+                                disabled={synthLoading !== null}
+                                className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-mono font-medium transition-all active:scale-95 hover:brightness-110 disabled:opacity-40"
+                                style={{ background: "rgba(99,102,241,0.1)", color: "#818CF8", border: "1px solid rgba(99,102,241,0.3)" }}
+                              >
+                                {synthLoading === idx ? "…" : "→ Harden"}
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        {/* Policy preview */}
+                        {preview && !isAdopted && (
+                          <div className="mt-2.5 p-2.5 rounded" style={{ background: "#0A0A0D", border: "1px solid rgba(99,102,241,0.3)" }}>
+                            <div className="text-[9px] font-mono mb-1" style={{ color: "#818CF8" }}>
+                              SYNTHESIZED POLICY · AUTO
+                            </div>
+                            <p className="text-[11px] font-mono font-semibold" style={{ color: "#F5F5F7" }}>{preview.name}</p>
+                            <p className="text-[10px] font-mono mt-0.5 leading-relaxed" style={{ color: "#8A8A93" }}>{preview.description}</p>
+                            <div className="flex items-center gap-2 mt-2">
+                              <span
+                                className="text-[9px] font-mono px-1.5 py-0.5 rounded"
+                                style={{ background: "rgba(255,90,90,0.1)", color: "#FF5A5A", border: "1px solid rgba(255,90,90,0.2)" }}
+                              >
+                                {String(preview.action).toUpperCase()}
+                              </span>
+                              <span className="text-[9px] font-mono" style={{ color: "#8A8A93" }}>{preview.severity}</span>
+                              <button
+                                onClick={() => adoptPolicy(preview)}
+                                className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded text-[9px] font-mono font-bold transition-all active:scale-95 hover:brightness-110"
+                                style={{ background: "#818CF8", color: "#0A0A0D" }}
+                              >
+                                Adopt →
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Fork comparison (appears after branching) ─────────────────── */}

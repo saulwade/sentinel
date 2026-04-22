@@ -223,12 +223,13 @@ Leyenda: `[ ]` pendiente · `[x]` hecho · ⚠️ Opus 4.7 · ⏱️ duración e
   - [x] 6 entradas BLOCK con counterfactual completo: phishing exfil, support $47k, CEO exfil, CEO $12k, GDPR exfil, GDPR $8.5k
   - [ ] Live OPUS path: llamada secundaria a Opus cuando `verdict === 'BLOCK'` (bonus si sobra tiempo)
 
-- [ ] **4.11 Recommendations → Policy adoption** ⏱️ 3h · Sonnet · **P0**
-  - [ ] En `Replay.tsx`: conectar `GET /analysis/:runId` y mostrar el panel de análisis completo (hoy no se muestra en ningún lado)
-  - [ ] Panel de recomendaciones: lista de `recommendations[]` con título + rationale
-  - [ ] Para recomendaciones con `policyHint`: botón "→ Harden with Policy" — reutiliza el flujo de synthesis de RedTeam.tsx
-  - [ ] Preview modal + "Adopt" → `POST /policies` → aparece en Command Center
-  - [ ] Loop completo visible: ataque → análisis Opus → recomendación → policy adoptada
+- [x] **4.11 Recommendations → Policy adoption** ⏱️ 3h · Sonnet · **P0**
+  - [x] `POST /analysis/:runId/synthesize-recommendation` — construye Attack sintético desde policyHint + blocked tool call, llama synthesizePolicy (Opus)
+  - [x] En `Replay.tsx`: panel "Opus Analysis" con botón "Analyze Run →" — usa SSE stream, muestra thinking en vivo
+  - [x] Panel muestra: executive summary + risk grade + recomendaciones con título + rationale
+  - [x] Para recs con `policyHint`: botón "→ Harden" → síntesis Opus → preview con nombre/descripción/action
+  - [x] Botón "Adopt →" → `POST /policies` → badge "✓ Adopted" inline
+  - [x] Loop completo: run → Replay → Analyze → Harden → Adopt → visible en Command Center
 
 - [ ] **4.12 Platform framing — renombrar tabs** ⏱️ 15min · Sonnet · **P1**
   - [ ] `Shell.tsx`: `Live` → `Runtime` · `Replay` → `Replay` (queda igual) · `Red Team` → `Red Team & Policies` (ya está) · agregar subtítulo descriptivo en cada tab tooltip
