@@ -89,6 +89,7 @@ export default function RedTeam() {
   const [records, setRecords] = useState<AttackRecord[]>([]);
   const [currentIteration, setCurrentIteration] = useState(0);
   const [loopStatus, setLoopStatus] = useState<"idle" | "running" | "done">("idle");
+  const [loopPhase, setLoopPhase] = useState<"generating" | "testing" | null>(null);
   const [loopSummary, setLoopSummary] = useState<LoopSummary | null>(null);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [selected, setSelected] = useState<AttackRecord | null>(null);
@@ -117,6 +118,7 @@ export default function RedTeam() {
     setLoopSummary(null);
     setCurrentIteration(1);
     setLoopStatus("running");
+    setLoopPhase("generating");
     setSynthesizedPolicies(new Map());
 
     try {
@@ -154,6 +156,7 @@ export default function RedTeam() {
       console.error("Red team error:", err);
     }
     setLoopStatus("done");
+    setLoopPhase(null);
     await fetchPolicies();
   }
 
@@ -161,9 +164,17 @@ export default function RedTeam() {
     switch (event) {
       case "iteration_start":
         setCurrentIteration(Number(data.iteration));
+        setLoopPhase("generating");
+        break;
+      case "attacks_generating":
+        setLoopPhase("generating");
         break;
       case "attack_generated":
+        setLoopPhase("testing");
         setRecords((prev) => [...prev, { attack: data.attack as Attack, result: null }]);
+        break;
+      case "attack_test_start":
+        setLoopPhase("testing");
         break;
       case "attack_test_end":
         setRecords((prev) =>
@@ -282,6 +293,9 @@ export default function RedTeam() {
           <span className="flex items-center gap-1.5 text-xs font-mono" style={{ color: "#F7B955" }}>
             <span className="w-1.5 h-1.5 rounded-full bg-[#F7B955] animate-pulse" />
             iter {currentIteration}/{totalIterations}
+            <span className="text-[10px]" style={{ color: "#8A8A93" }}>
+              · {loopPhase === "generating" ? "Opus generating attacks…" : "testing…"}
+            </span>
           </span>
         )}
 
@@ -304,7 +318,10 @@ export default function RedTeam() {
           className="ml-auto px-4 py-1.5 rounded text-xs font-mono font-medium disabled:opacity-40 transition-all duration-150 active:scale-95 hover:brightness-110"
           style={{ background: "#FF5A5A", color: "#0A0A0D" }}
         >
-          {loopStatus === "idle" ? "⚔  Run Adaptive Loop" : loopStatus === "done" ? "⚔  Re-run" : "Attacking..."}
+          {loopStatus === "idle" ? "⚔  Run Adaptive Loop"
+            : loopStatus === "done" ? "⚔  Re-run"
+            : loopPhase === "generating" ? "Generating…"
+            : "Testing…"}
         </button>
       </div>
 
