@@ -68,7 +68,7 @@ redteamRouter.post('/start', (c) => {
         stream.writeSSE({ event: 'progress', data: JSON.stringify({ message: msg }) }).catch(() => {});
       });
     } catch (err) {
-      await stream.writeSSE({ event: 'error', data: JSON.stringify({ message: String(err) }) });
+      await stream.writeSSE({ event: 'error', data: JSON.stringify({ error: err instanceof Error ? err.message : String(err) }) });
       return;
     }
 

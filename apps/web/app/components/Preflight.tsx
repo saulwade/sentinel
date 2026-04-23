@@ -88,8 +88,8 @@ function ScenarioBuilder({ onLaunched }: { onLaunched?: (runId: string, label: s
         onChange={(e) => setDescription(e.target.value)}
         placeholder={SCENARIO_PLACEHOLDER}
         rows={3}
-        className="w-full px-3 py-2 rounded text-xs font-mono resize-none"
-        style={{ background: "#14141A", color: "#F5F5F7", border: "1px solid #262630", outline: "none" }}
+        className="w-full px-3 py-2 rounded text-xs font-mono resize-none focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
+        style={{ background: "#14141A", color: "#F5F5F7", border: "1px solid #262630" }}
         disabled={synthesizing}
       />
 
@@ -360,8 +360,8 @@ function AgentDnaSection({ onLaunched }: { onLaunched?: (runId: string, label: s
         onChange={(e) => setPrompt(e.target.value)}
         placeholder={DNA_PLACEHOLDER}
         rows={6}
-        className="w-full px-3 py-2 rounded text-xs font-mono resize-none"
-        style={{ background: "#14141A", color: "#F5F5F7", border: "1px solid #262630", outline: "none" }}
+        className="w-full px-3 py-2 rounded text-xs font-mono resize-none focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
+        style={{ background: "#14141A", color: "#F5F5F7", border: "1px solid #262630" }}
         disabled={analyzing}
       />
 

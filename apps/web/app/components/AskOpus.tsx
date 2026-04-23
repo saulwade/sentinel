@@ -275,8 +275,8 @@ export default function AskOpus() {
             onKeyDown={onKeyDown}
             placeholder="Ask about your security posture…  (⌘↵ to send)"
             rows={2}
-            className="flex-1 px-3 py-2 rounded text-xs font-mono resize-none"
-            style={{ background: "#14141A", color: "#F5F5F7", border: "1px solid #262630", outline: "none" }}
+            className="flex-1 px-3 py-2 rounded text-xs font-mono resize-none focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
+            style={{ background: "#14141A", color: "#F5F5F7", border: "1px solid #262630" }}
             disabled={busy}
           />
           <button
@@ -370,7 +370,7 @@ function TurnCard({ turn }: { turn: Turn }) {
                   </div>
                   {turn.result.evidence.map((e, i) => (
                     <div
-                      key={i}
+                      key={`${e.runId}-${e.eventSeq ?? i}`}
                       className="flex items-start gap-2 px-4 py-2 rounded"
                       style={{ background: "rgba(45,212,164,0.04)", border: "1px solid rgba(45,212,164,0.15)" }}
                     >

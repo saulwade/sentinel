@@ -426,9 +426,9 @@ export default function Arena() {
               </div>
             )}
 
-            {policies.map(({ policy, round, sourceAttackId }, i) => (
+            {policies.map(({ policy, round, sourceAttackId }) => (
               <div
-                key={i}
+                key={policy.id}
                 className="rounded-lg p-2.5"
                 style={{ background: "#14141A", border: "1px solid rgba(125,211,252,0.25)" }}
               >
