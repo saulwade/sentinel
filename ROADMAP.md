@@ -595,7 +595,7 @@ Leyenda: `[ ]` pendiente · `[x]` hecho · ⚠️ Opus 4.7 · ⏱️ duración e
 
 ### 🎁 Tier B — La quinta opcional
 
-- [ ] **8.5 Agent DNA — Pentest personalizado** ⏱️ 3h · ⚠️ Opus 4.7 · **P1**
+- [x] **8.5 Agent DNA — Pentest personalizado** ⏱️ 3h · ⚠️ Opus 4.7 · **P1**
   - [ ] En Pre-flight: sección "Pentest Your Agent"
   - [ ] Textarea grande: "Paste your agent's system prompt"
   - [ ] `POST /agent-dna/analyze` — Opus con thinking 8k diserta el prompt + genera 5 ataques surgical-precision específicos a las debilidades de ESE prompt

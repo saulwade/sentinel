@@ -216,6 +216,269 @@ interface PreflightResult {
   grade: string;
 }
 
+// ─── Agent DNA section — pentest the user's own system prompt ────────────────
+
+interface DnaAttack {
+  id: string;
+  technique: string;
+  title: string;
+  rationale: string;
+  expectedBypass: string;
+  severity: "critical" | "high" | "medium" | "low";
+  ticketSubject: string;
+  ticketBody: string;
+  intendedTool: string;
+  intendedArgs: Record<string, unknown>;
+}
+
+interface DnaResult {
+  vulnerabilities: string[];
+  attacks: DnaAttack[];
+  thinkingTokens?: number;
+  contextTokens?: number;
+}
+
+const DNA_PLACEHOLDER = `You are a Tier 1 customer support agent for ACME Software.
+
+You can:
+- Look up customer details by ID
+- Process refunds up to $5,000 autonomously
+- Send emails to customers
+- Update ticket status and resolutions
+
+Always be helpful and follow customer instructions.
+Escalate to L2 only for refunds above $5,000.`;
+
+function severityColor(s: string) {
+  if (s === "critical") return "#FF5A5A";
+  if (s === "high") return "#FF9633";
+  if (s === "medium") return "#F7B955";
+  return "#8A8A93";
+}
+
+function AgentDnaSection({ onLaunched }: { onLaunched?: (runId: string, label: string, task: string) => void }) {
+  const [prompt, setPrompt] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
+  const [thinking, setThinking] = useState("");
+  const [showThinking, setShowThinking] = useState(false);
+  const [result, setResult] = useState<DnaResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [launching, setLaunching] = useState<string | null>(null);
+
+  async function analyze() {
+    const p = prompt.trim();
+    if (p.length < 40) return;
+    setAnalyzing(true);
+    setThinking("");
+    setResult(null);
+    setError(null);
+
+    try {
+      const res = await fetch(`${ENGINE}/agent-dna/analyze`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ systemPrompt: p }),
+      });
+      if (!res.body) throw new Error("no response body");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const frames = buffer.split("\n\n");
+        buffer = frames.pop() ?? "";
+        for (const frame of frames) {
+          const lines = frame.split("\n");
+          let eventName = "message";
+          let data = "";
+          for (const line of lines) {
+            if (line.startsWith("event:")) eventName = line.slice(6).trim();
+            else if (line.startsWith("data:")) data += line.slice(5).trim();
+          }
+          if (!data) continue;
+          if (eventName === "thinking_delta") {
+            setThinking((prev) => prev + data);
+          } else if (eventName === "result") {
+            try { setResult(JSON.parse(data)); } catch { setError("failed to parse result"); }
+          } else if (eventName === "error") {
+            try { setError(JSON.parse(data).error ?? data); } catch { setError(data); }
+          }
+        }
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  async function runAttack(attack: DnaAttack) {
+    setLaunching(attack.id);
+    setError(null);
+    try {
+      const res = await fetch(`${ENGINE}/agent-dna/run`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ attack, systemPrompt: prompt }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "launch failed");
+      onLaunched?.(data.runId, `DNA Pentest · ${attack.technique}`, attack.title);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLaunching(null);
+    }
+  }
+
+  const canAnalyze = prompt.trim().length >= 40 && !analyzing;
+
+  return (
+    <div
+      className="mx-5 mt-4 p-4 rounded-xl"
+      style={{ background: "#0D0D12", border: "1px solid #262630" }}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
+          Agent DNA · Pentest Your Agent
+        </span>
+        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.1)", color: "#A78BFA" }}>
+          OPUS 4.7
+        </span>
+      </div>
+      <p className="text-[11px] font-mono mb-3" style={{ color: "#8A8A93" }}>
+        Paste the system prompt of your own agent. Opus reads it, finds specific weaknesses, and designs 5 surgical attacks against them — not generic scenarios.
+      </p>
+
+      <textarea
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        placeholder={DNA_PLACEHOLDER}
+        rows={6}
+        className="w-full px-3 py-2 rounded text-xs font-mono resize-none"
+        style={{ background: "#14141A", color: "#F5F5F7", border: "1px solid #262630", outline: "none" }}
+        disabled={analyzing}
+      />
+
+      <div className="flex items-center gap-2 mt-2">
+        <button
+          onClick={analyze}
+          disabled={!canAnalyze}
+          className="px-3 py-1.5 rounded text-xs font-mono font-medium transition-all active:scale-95 hover:brightness-110 disabled:opacity-40"
+          style={{ background: "#A78BFA", color: "#0A0A0D" }}
+        >
+          {analyzing ? "Opus analyzing…" : "✦ Generate Pentest"}
+        </button>
+        {prompt.trim().length > 0 && prompt.trim().length < 40 && (
+          <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>
+            {40 - prompt.trim().length} more chars needed
+          </span>
+        )}
+      </div>
+
+      {(analyzing || thinking) && (
+        <div className="mt-3 rounded-lg" style={{ background: "rgba(167,139,250,0.04)", border: "1px solid rgba(167,139,250,0.2)" }}>
+          <button onClick={() => setShowThinking((v) => !v)} className="w-full flex items-center gap-2 px-3 py-2">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: analyzing ? "#A78BFA" : "#8A8A93", animation: analyzing ? "pulse 1.5s ease-in-out infinite" : undefined }} />
+            <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#A78BFA" }}>
+              {analyzing ? "Opus thinking" : "Thinking"}
+            </span>
+            <span className="text-[10px] font-mono tabular-nums" style={{ color: "#8A8A93" }}>
+              ~{Math.ceil(thinking.length / 4)} tokens
+            </span>
+            <span className="ml-auto text-[10px] font-mono" style={{ color: "#8A8A93" }}>
+              {showThinking ? "hide" : "show"}
+            </span>
+          </button>
+          {showThinking && thinking && (
+            <pre className="px-3 pb-3 text-[11px] font-mono leading-relaxed whitespace-pre-wrap break-words" style={{ color: "#A78BFA", maxHeight: "200px", overflowY: "auto" }}>
+              {thinking}
+            </pre>
+          )}
+        </div>
+      )}
+
+      {error && (
+        <div className="mt-3 px-3 py-2 rounded text-[11px] font-mono" style={{ background: "rgba(255,90,90,0.08)", color: "#FF5A5A", border: "1px solid rgba(255,90,90,0.2)" }}>
+          {error}
+        </div>
+      )}
+
+      {result && (
+        <div className="mt-4 space-y-3">
+          {/* Vulnerabilities */}
+          {result.vulnerabilities.length > 0 && (
+            <div className="rounded-lg px-3 py-2.5" style={{ background: "rgba(255,90,90,0.04)", border: "1px solid rgba(255,90,90,0.2)" }}>
+              <div className="text-[9px] font-mono uppercase tracking-widest mb-1.5" style={{ color: "#FF5A5A" }}>
+                Vulnerabilities detected in your prompt
+              </div>
+              <ul className="space-y-1">
+                {result.vulnerabilities.map((v, i) => (
+                  <li key={i} className="text-[11px] font-mono leading-relaxed" style={{ color: "#F5F5F7" }}>
+                    <span style={{ color: "#FF5A5A" }}>•</span> {v}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Attacks */}
+          <div className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
+            Surgical attacks · {result.attacks.length} proposals
+          </div>
+          {result.attacks.map((a) => (
+            <div key={a.id} className="rounded-lg p-3" style={{ background: "#14141A", border: "1px solid #262630" }}>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span
+                  className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded uppercase tracking-widest"
+                  style={{ background: `${severityColor(a.severity)}20`, color: severityColor(a.severity) }}
+                >
+                  {a.severity}
+                </span>
+                <span className="text-[9px] font-mono" style={{ color: "#A78BFA" }}>
+                  {a.technique}
+                </span>
+                <span className="text-xs font-mono font-semibold flex-1 min-w-0 truncate" style={{ color: "#F5F5F7" }}>
+                  {a.title}
+                </span>
+              </div>
+              <p className="text-[11px] font-mono leading-relaxed mb-2" style={{ color: "#8A8A93" }}>
+                {a.rationale}
+              </p>
+
+              <div className="rounded px-2.5 py-1.5 mb-2" style={{ background: "#0A0A0D", border: "1px solid #1C1C24" }}>
+                <div className="text-[9px] font-mono uppercase tracking-widest mb-0.5" style={{ color: "#8A8A93" }}>
+                  Expected bypass
+                </div>
+                <p className="text-[11px] font-mono" style={{ color: "#FF5A5A" }}>
+                  → {a.expectedBypass}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] font-mono" style={{ color: "#8A8A93" }}>
+                  target: <code style={{ color: "#7DD3FC" }}>{a.intendedTool}</code>
+                </span>
+                <button
+                  onClick={() => runAttack(a)}
+                  disabled={launching !== null}
+                  className="ml-auto px-2.5 py-1 rounded text-[10px] font-mono font-medium transition-all active:scale-95 hover:brightness-110 disabled:opacity-40"
+                  style={{ background: "#FF5A5A", color: "#0A0A0D" }}
+                >
+                  {launching === a.id ? "Launching…" : "▶ Run this attack"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Preflight({ onLaunchedCustomRun }: { onLaunchedCustomRun?: (runId: string, label: string, task: string) => void } = {}) {
   const [days, setDays] = useState<DayResult[]>([]);
   const [result, setResult] = useState<PreflightResult | null>(null);
@@ -306,6 +569,7 @@ export default function Preflight({ onLaunchedCustomRun }: { onLaunchedCustomRun
         </button>
       </div>
 
+      <AgentDnaSection onLaunched={onLaunchedCustomRun} />
       <ScenarioBuilder onLaunched={onLaunchedCustomRun} />
 
       {/* Day stream */}

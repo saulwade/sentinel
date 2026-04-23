@@ -20,6 +20,7 @@ import { loadRunsFromDb } from './agent/runner.js';
 import { adminRouter } from './routes/admin.js';
 import { askRouter } from './routes/ask.js';
 import { arenaRouter } from './routes/arena.js';
+import { agentDnaRouter } from './routes/agentDna.js';
 
 // Hydrate in-memory registries from SQLite on startup
 loadPoliciesFromDb();
@@ -49,6 +50,7 @@ app.route('/scenarios', scenariosRouter);
 app.route('/admin', adminRouter);
 app.route('/ask', askRouter);
 app.route('/arena', arenaRouter);
+app.route('/agent-dna', agentDnaRouter);
 
 const PORT = Number(process.env.PORT ?? 3001);
 
