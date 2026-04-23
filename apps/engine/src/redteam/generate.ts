@@ -24,6 +24,7 @@ export interface GenerateOptions {
   iteration: number;
   count: number;
   priorAttempts: PriorAttempt[];
+  onThinkingDelta?: (delta: string) => void;
 }
 
 // ─── Target surface (constant, passed to every prompt) ────────────────────────
@@ -127,16 +128,32 @@ export async function generateAttacksForIteration(opts: GenerateOptions): Promis
   const prompt = buildPrompt(opts);
   const budget = opts.iteration === 1 ? ITER1_THINKING : ITER2_THINKING;
 
-  const res = await client.messages.create({
-    model: MODEL,
-    max_tokens: 16_000,
-    thinking: { type: 'enabled', budget_tokens: budget },
-    messages: [{ role: 'user', content: prompt }],
-  });
-
   let jsonText = '';
-  for (const block of res.content) {
-    if (block.type === 'text') jsonText += block.text;
+
+  if (opts.onThinkingDelta) {
+    // Streaming path for live UI feedback (arena, etc.)
+    const stream = client.messages.stream({
+      model: MODEL,
+      max_tokens: 16_000,
+      thinking: { type: 'enabled', budget_tokens: budget },
+      messages: [{ role: 'user', content: prompt }],
+    });
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta') {
+        if (event.delta.type === 'thinking_delta') opts.onThinkingDelta(event.delta.thinking);
+        else if (event.delta.type === 'text_delta') jsonText += event.delta.text;
+      }
+    }
+  } else {
+    const res = await client.messages.create({
+      model: MODEL,
+      max_tokens: 16_000,
+      thinking: { type: 'enabled', budget_tokens: budget },
+      messages: [{ role: 'user', content: prompt }],
+    });
+    for (const block of res.content) {
+      if (block.type === 'text') jsonText += block.text;
+    }
   }
 
   const clean = jsonText.replace(/```json?\n?/g, '').replace(/```/g, '').trim();

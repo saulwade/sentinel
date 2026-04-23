@@ -157,12 +157,13 @@ export interface SynthesizeResult {
 export async function synthesizePolicy(
   attack: Attack,
   testResult: TestResult,
+  onThinkingDelta?: (delta: string) => void,
 ): Promise<SynthesizeResult> {
   let previousFailure: string | undefined;
   let lastThinking = '';
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    const { raw, thinking } = await callOpus(attack, testResult, previousFailure);
+    const { raw, thinking } = await callOpus(attack, testResult, previousFailure, onThinkingDelta);
     lastThinking = thinking;
 
     let policy: Policy;
@@ -183,20 +184,41 @@ export async function synthesizePolicy(
   throw new Error(`Failed to synthesize a valid policy after ${MAX_ATTEMPTS} attempts. Last feedback: ${previousFailure}`);
 }
 
-async function callOpus(attack: Attack, testResult: TestResult, previousFailure?: string): Promise<{ raw: string; thinking: string }> {
-  const res = await client.messages.create({
+async function callOpus(
+  attack: Attack,
+  testResult: TestResult,
+  previousFailure?: string,
+  onThinkingDelta?: (delta: string) => void,
+): Promise<{ raw: string; thinking: string }> {
+  const params = {
     model: MODEL,
     max_tokens: 8_000,
-    thinking: { type: 'enabled', budget_tokens: THINKING_BUDGET },
+    thinking: { type: 'enabled' as const, budget_tokens: THINKING_BUDGET },
     system: SYNTHESIS_SYSTEM,
-    messages: [{ role: 'user', content: buildUserPrompt(attack, testResult, previousFailure) }],
-  });
+    messages: [{ role: 'user' as const, content: buildUserPrompt(attack, testResult, previousFailure) }],
+  };
 
   let text = '';
   let thinking = '';
-  for (const block of res.content) {
-    if (block.type === 'text') text += block.text;
-    else if (block.type === 'thinking') thinking += block.thinking;
+
+  if (onThinkingDelta) {
+    const stream = client.messages.stream(params);
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta') {
+        if (event.delta.type === 'thinking_delta') {
+          thinking += event.delta.thinking;
+          onThinkingDelta(event.delta.thinking);
+        } else if (event.delta.type === 'text_delta') {
+          text += event.delta.text;
+        }
+      }
+    }
+  } else {
+    const res = await client.messages.create(params);
+    for (const block of res.content) {
+      if (block.type === 'text') text += block.text;
+      else if (block.type === 'thinking') thinking += block.thinking;
+    }
   }
   return { raw: text, thinking };
 }

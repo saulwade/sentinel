@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Arena from "./Arena";
 
 const ENGINE = "http://localhost:3001";
 
@@ -143,6 +144,7 @@ export default function RedTeam() {
   const [driftResult, setDriftResult] = useState<DriftAuditResponse | null>(null);
   const [driftError, setDriftError] = useState<string | null>(null);
   const [driftAdopted, setDriftAdopted] = useState<Set<string>>(new Set());
+  const [mode, setMode] = useState<"standard" | "arena">("standard");
 
   const fetchPolicies = useCallback(async () => {
     try {
@@ -420,6 +422,34 @@ export default function RedTeam() {
   const totalIterations = 3;
   const iters = [1, 2, 3];
 
+  if (mode === "arena") {
+    return (
+      <div className="flex flex-col h-full" style={{ background: "#0A0A0D" }}>
+        <div className="flex items-center gap-3 px-5 py-2 border-b shrink-0" style={{ borderColor: "#262630" }}>
+          <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid #262630" }}>
+            <button
+              onClick={() => setMode("standard")}
+              className="px-3 py-1 text-[10px] font-mono transition-all"
+              style={{ background: "transparent", color: "#8A8A93" }}
+            >
+              Standard
+            </button>
+            <button
+              onClick={() => setMode("arena")}
+              className="px-3 py-1 text-[10px] font-mono font-semibold"
+              style={{ background: "#A78BFA", color: "#0A0A0D" }}
+            >
+              ⚔ Arena
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 min-h-0">
+          <Arena />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full" style={{ background: "#0A0A0D" }}>
       {/* ── Controls ───────────────────────────────────────────────── */}
@@ -427,6 +457,23 @@ export default function RedTeam() {
         className="flex items-center gap-4 px-5 py-2.5 border-b shrink-0"
         style={{ borderColor: "#262630" }}
       >
+        <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid #262630" }}>
+          <button
+            onClick={() => setMode("standard")}
+            className="px-3 py-1 text-[10px] font-mono font-semibold"
+            style={{ background: "#A78BFA", color: "#0A0A0D" }}
+          >
+            Standard
+          </button>
+          <button
+            onClick={() => setMode("arena")}
+            className="px-3 py-1 text-[10px] font-mono transition-all"
+            style={{ background: "transparent", color: "#8A8A93" }}
+            title="Adversarial Evolution Arena — two Opus instances co-evolve in real time"
+          >
+            ⚔ Arena
+          </button>
+        </div>
         <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
           Red Team & Policies
         </span>

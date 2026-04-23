@@ -579,7 +579,7 @@ Leyenda: `[ ]` pendiente · `[x]` hecho · ⚠️ Opus 4.7 · ⏱️ duración e
   - [ ] UI: panel con preview + botón Adopt
   - [ ] **Lo que pushea de Opus:** 1M context leyendo cada evento + razonamiento causal sobre historia
 
-- [ ] **8.4 Adversarial Evolution Arena** ⏱️ 5-6h · ⚠️ Opus 4.7 · **P0 · showpiece**
+- [x] **8.4 Adversarial Evolution Arena** ⏱️ 5-6h · ⚠️ Opus 4.7 · **P0 · showpiece**
   - [ ] Nuevo modo en Red Team tab: toggle "Standard / Arena"
   - [ ] `POST /arena/start` SSE endpoint — orquesta 5 rondas auto:
     1. Red Opus genera 3 ataques (thinking 6k, ve historial de defensas activas)
