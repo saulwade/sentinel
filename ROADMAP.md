@@ -605,7 +605,7 @@ Leyenda: `[ ]` pendiente · `[x]` hecho · ⚠️ Opus 4.7 · ⏱️ duración e
 
 ### 🎯 Tier C — Bonus de alto voltaje (solo si sobra tiempo)
 
-- [ ] **8.6 Opus Security Committee** ⏱️ 4h · ⚠️ Opus 4.7 · **P2**
+- [x] **8.6 Opus Security Committee** ⏱️ 4h · ⚠️ Opus 4.7 · **P2**
   - [ ] Cuando hay BLOCK crítico: spawn 3 instancias de Opus con personas (CISO paranoico, Legal/Compliance, Product Lead pragmático)
   - [ ] Cada una escribe su opinión (thinking 3k cada una, en paralelo)
   - [ ] Opus "moderator" sintetiza consenso final

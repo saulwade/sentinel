@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import FleetView, { type FleetAgent } from "./FleetView";
+import Committee from "./Committee";
 
 const ENGINE = "http://localhost:3001";
 
@@ -265,6 +266,7 @@ export default function LiveView({
   } | null>(null);
   const [summaryDismissed, setSummaryDismissed] = useState(false);
   const [counterfactualMap, setCounterfactualMap] = useState<Record<string, DecisionPayload["counterfactual"]>>({});
+  const [committeeEventId, setCommitteeEventId] = useState<string | null>(null);
   const [autoDemoActive, setAutoDemoActive] = useState(false);
   const [autoDemoCountdown, setAutoDemoCountdown] = useState<number | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1304,6 +1306,19 @@ export default function LiveView({
                   </div>
                 )}
 
+                {/* Convene Committee — only for BLOCK/PAUSE decisions */}
+                {selectedDecision && selected && (selectedDecision.verdict === 'BLOCK' || selectedDecision.verdict === 'PAUSE') && (
+                  <button
+                    onClick={() => setCommitteeEventId(selected.id)}
+                    title="Spawn 3 Opus personas (CISO, Legal, Product) + moderator to deliberate this decision"
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-xs font-mono font-medium transition-all active:scale-95 hover:brightness-110"
+                    style={{ background: "rgba(167,139,250,0.08)", color: "#A78BFA", border: "1px solid rgba(167,139,250,0.3)" }}
+                  >
+                    🏛️ Convene Security Committee
+                    <span className="text-[9px] opacity-70">· 4× Opus 4.7</span>
+                  </button>
+                )}
+
                 {/* Without Sentinel — pending (Opus is thinking) */}
                 {counterfactualPending && (
                   <div className="rounded-lg p-3" style={{ background: 'rgba(255,90,90,0.04)', border: '1px dashed rgba(255,90,90,0.25)' }}>
@@ -1377,6 +1392,14 @@ export default function LiveView({
           </div>
         </div>
       </div>
+      )}
+
+      {/* ── Security Committee modal ──────────────────────────────────── */}
+      {committeeEventId && (
+        <Committee
+          decisionEventId={committeeEventId}
+          onClose={() => setCommitteeEventId(null)}
+        />
       )}
     </div>
   );

@@ -7,3 +7,4 @@ export * from './drift.js';
 export * from './retroactive.js';
 export * from './arena.js';
 export * from './agentDna.js';
+export * from './committee.js';
