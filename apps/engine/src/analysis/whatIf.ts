@@ -29,7 +29,7 @@ import { evaluatePolicies } from '../policies/engine.js';
 import { getWorld } from '../agent/world.js';
 
 const client = new Anthropic();
-const MODEL = 'claude-opus-4-6';
+const MODEL = 'claude-opus-4-7';
 const GENERATOR_THINKING = 3_000;
 const SUMMARY_THINKING = 2_500;
 const MAX_TOKENS = 8_000;

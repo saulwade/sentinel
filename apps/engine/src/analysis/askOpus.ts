@@ -18,7 +18,7 @@ import { computeBlastRadius } from './blastRadius.js';
 import { getActivePolicies } from '../interceptor.js';
 
 const client = new Anthropic();
-const MODEL = 'claude-opus-4-6';
+const MODEL = 'claude-opus-4-7';
 const THINKING_BUDGET = 6_000;
 const MAX_TOKENS = 8_000;
 

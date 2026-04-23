@@ -12,7 +12,7 @@ import { nanoid } from 'nanoid';
 import type { DnaAnalysisResponse, DnaAttackProposal, DnaSeverity } from '@sentinel/shared';
 
 const client = new Anthropic();
-const MODEL = 'claude-opus-4-6';
+const MODEL = 'claude-opus-4-7';
 const THINKING_BUDGET = 8_000;
 const MAX_TOKENS = 16_000;
 

@@ -16,7 +16,7 @@ import type { Attack, AttackTechnique, PriorAttempt } from '@sentinel/shared';
 import { getActivePolicies } from '../interceptor.js';
 
 const client = new Anthropic();
-const MODEL = 'claude-opus-4-6';
+const MODEL = 'claude-opus-4-7';
 const ITER1_THINKING = 4_000;
 const ITER2_THINKING = 6_000;
 

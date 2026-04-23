@@ -7,7 +7,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 const client = new Anthropic();
-const MODEL = 'claude-opus-4-6';
+const MODEL = 'claude-opus-4-7';
 
 export interface SimEvent {
   day: number;

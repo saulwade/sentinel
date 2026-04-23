@@ -12,7 +12,7 @@ import type { AgentEvent } from '@sentinel/shared';
 import type { WorldState } from '../agent/world.js';
 
 const client = new Anthropic();
-const MODEL = 'claude-opus-4-6';
+const MODEL = 'claude-opus-4-7';
 
 export interface LiveCounterfactual {
   narration: string;

@@ -21,7 +21,7 @@ import { getAllEvents } from '../timetravel/snapshot.js';
 import { getAllRuns } from '../agent/runner.js';
 
 const client = new Anthropic();
-const MODEL = 'claude-opus-4-6';
+const MODEL = 'claude-opus-4-7';
 const PERSONA_THINKING = 4_000;
 const MODERATOR_THINKING = 4_000;
 const MAX_TOKENS = 6_000;

@@ -28,7 +28,7 @@ import { getActivePolicies, setActivePolicies } from '../interceptor.js';
 import { DEFAULT_POLICIES } from '../policies/defaults.js';
 
 const client = new Anthropic();
-const REPORT_MODEL = 'claude-opus-4-6';
+const REPORT_MODEL = 'claude-opus-4-7';
 const REPORT_THINKING = 4_000;
 
 export type ArenaEmitter = (event: ArenaEvent) => void | Promise<void>;

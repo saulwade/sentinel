@@ -19,7 +19,7 @@ import { getWorld } from '../agent/world.js';
 import { seedSupportScenario } from '../agent/scenarios/support.js';
 
 const client = new Anthropic();
-const MODEL = 'claude-opus-4-6';
+const MODEL = 'claude-opus-4-7';
 const THINKING_BUDGET = 6_000;
 const MAX_ATTEMPTS = 2;
 
