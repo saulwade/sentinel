@@ -171,11 +171,12 @@ export default function WhatIfSimulator({
     lines.push("");
     lines.push("## Mutations");
     for (const m of mutations) {
+      if (!m || !m.id) continue;
       const r = results.get(m.id);
-      const verdict = r ? (r.verdict === "blocked" ? `🛡️ BLOCKED (${r.matchedPolicyName ?? r.matchedPolicyId})` : "⚠️ PASSED") : "?";
-      lines.push(`- **${m.id}** [${m.strategy}] → ${verdict}`);
-      lines.push(`    - ${m.rationale}`);
-      lines.push(`    - \`${m.tool}(${JSON.stringify(m.args).slice(0, 120)})\``);
+      const verdict = r ? (r.verdict === "blocked" ? `🛡️ BLOCKED (${r.matchedPolicyName ?? r.matchedPolicyId ?? "?"})` : "⚠️ PASSED") : "?";
+      lines.push(`- **${m.id}** [${m.strategy ?? "—"}] → ${verdict}`);
+      if (m.rationale) lines.push(`    - ${m.rationale}`);
+      lines.push(`    - \`${m.tool ?? "?"}(${JSON.stringify(m.args ?? {}).slice(0, 120)})\``);
     }
     if (summary.fixes.length > 0) {
       lines.push("");

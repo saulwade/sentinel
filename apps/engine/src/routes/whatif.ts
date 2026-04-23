@@ -39,7 +39,12 @@ whatifRouter.post('/apply-fix', async (c) => {
     sourceDecisionEventId: String(body.sourceDecisionEventId ?? ''),
   });
 
-  adoptPolicy(policy);
+  try {
+    adoptPolicy(policy);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({ error: `failed to adopt policy: ${msg}` }, 500);
+  }
   return c.json({ ok: true, policyId: policy.id, policy });
 });
 
