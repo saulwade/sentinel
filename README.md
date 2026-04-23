@@ -67,6 +67,8 @@ Then it shows you exactly what happened, what would have happened without it, an
 <!-- SCREENSHOT: Command Center with Trust Score ring showing A+ grade, stat cards showing $47k prevented -->
 <!-- Caption: "Command Center — Trust Score, damage prevented, and one-click access to all workflows" -->
 
+**The Trust Score starts at D.** That's intentional — you haven't been attacked yet, so you haven't built defenses. Run the demo, adopt synthesized policies, and watch it climb to A+. Security posture, quantified in real time.
+
 **Three live attack scenarios** against a Customer Support Agent with access to customer PII, refund processing, and email sending:
 
 | Scenario | Attack vector | What Sentinel stops |
@@ -81,8 +83,9 @@ Then it shows you exactly what happened, what would have happened without it, an
 ## Six views. One platform.
 
 ### 1 · Command Center
-<!-- SCREENSHOT: Command Center with the trust score ring (A+ in green), 4 stat cards, sparkline -->
-Trust Score ring (A+ to F) computed from interdiction effectiveness × policy coverage. Every number links to the run that produced it.
+<!-- SCREENSHOT: Command Center after running 3+ scenarios and adopting policies from Red Team — shows trust score ring in green (A/A+), stat cards with $47k+ prevented, sparkline with green bars -->
+<!-- Score formula: 40×(interdiction rate) + 30×(policies/8) + 30 base. Starts at D with defaults, reaches A+ after adopting 8+ synthesized policies -->
+Trust Score ring (A+ to F) computed from interdiction effectiveness × policy coverage. Starts low. Grows as you run scenarios and adopt synthesized policies — making security posture quantifiable for the first time.
 
 ### 2 · Runtime — Live Interception
 <!-- SCREENSHOT: Runtime mid-run — CEO Override with PAUSE banner, event stream showing POLICY/OPUS badges, red sidebar flash -->
