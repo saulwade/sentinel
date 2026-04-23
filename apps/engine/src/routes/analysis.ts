@@ -20,6 +20,7 @@ import { getRun } from '../agent/runner.js';
 import { getWorld } from '../agent/world.js';
 import { performSurgery } from '../analysis/retroactiveSurgery.js';
 import { getActivePolicies } from '../interceptor.js';
+import { generateIntelligence, type Intelligence } from '../analysis/intelligence.js';
 import type { RunAnalysis, Attack, TestResult } from '@sentinel/shared';
 
 export const analysisRouter = new Hono();
@@ -263,6 +264,73 @@ analysisRouter.get('/:runId/stream', (c) => {
 // ─── Retroactive Policy Surgery ───────────────────────────────────────────────
 // Opus synthesizes a deterministic policy that would have blocked a past
 // bypass, validated against all clean history + quantified counterfactual.
+
+// ─── Incident Intelligence ────────────────────────────────────────────────────
+// One Opus call produces three audience-tuned outputs from the same context:
+// Threat Profile (security team), Attack Narrative (engineering),
+// Board Briefing (CEO/board). Streams live thinking deltas.
+
+const intelligenceCache = new Map<string, { intelligence: Intelligence; thinkingText: string }>();
+
+analysisRouter.post('/:runId/intelligence', (c) => {
+  const runId = c.req.param('runId');
+  return streamSSE(c, async (stream) => {
+    const run = getRun(runId);
+    if (!run) {
+      await stream.writeSSE({ event: 'error', data: JSON.stringify({ error: 'run not found' }) });
+      return;
+    }
+    const events = getAllEvents(runId);
+    if (events.length === 0) {
+      await stream.writeSSE({ event: 'error', data: JSON.stringify({ error: 'no events for run' }) });
+      return;
+    }
+
+    // Cache hit
+    const cached = intelligenceCache.get(runId);
+    if (cached) {
+      await stream.writeSSE({
+        event: 'result',
+        data: JSON.stringify({
+          ...cached.intelligence,
+          thinkingTokens: Math.ceil(cached.thinkingText.length / 4),
+          fromCache: true,
+        }),
+      });
+      await stream.writeSSE({ event: 'done', data: JSON.stringify({ fromCache: true }) });
+      return;
+    }
+
+    try {
+      const blast = computeBlastRadius(events);
+      const cachedAnalysis = analysisCache.get(runId);
+
+      const { intelligence, thinkingText } = await generateIntelligence({
+        scenario: scenarioLabel(run.agentConfig),
+        events,
+        blast,
+        analysis: cachedAnalysis?.analysis,
+        onThinkingDelta: (delta) => {
+          stream.writeSSE({ event: 'thinking_delta', data: delta }).catch(() => {});
+        },
+      });
+
+      intelligenceCache.set(runId, { intelligence, thinkingText });
+
+      await stream.writeSSE({
+        event: 'result',
+        data: JSON.stringify({
+          ...intelligence,
+          thinkingTokens: Math.ceil(thinkingText.length / 4),
+        }),
+      });
+      await stream.writeSSE({ event: 'done', data: '{}' });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await stream.writeSSE({ event: 'error', data: JSON.stringify({ error: msg }) });
+    }
+  });
+});
 
 analysisRouter.post('/:runId/retroactive-surgery', (c) => {
   const runId = c.req.param('runId');
