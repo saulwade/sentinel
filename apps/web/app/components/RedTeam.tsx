@@ -819,7 +819,7 @@ export default function RedTeam() {
                     placeholder="e.g. Block any refund over $5,000 unless it references a verified SLA breach"
                     rows={2}
                     disabled={authoring}
-                    className="w-full px-2.5 py-1.5 rounded text-[11px] font-mono resize-none disabled:opacity-50 focus:outline-none"
+                    className="w-full px-2.5 py-1.5 rounded text-[11px] font-mono resize-none disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
                     style={{ background: "#14141A", color: "#F5F5F7", border: "1px solid #262630" }}
                   />
                   <div className="flex items-center gap-2">
