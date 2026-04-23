@@ -18,6 +18,8 @@ import { generateIncidentReport } from '../analysis/report.js';
 import { synthesizePolicy } from '../redteam/synthesize.js';
 import { getRun } from '../agent/runner.js';
 import { getWorld } from '../agent/world.js';
+import { performSurgery } from '../analysis/retroactiveSurgery.js';
+import { getActivePolicies } from '../interceptor.js';
 import type { RunAnalysis, Attack, TestResult } from '@sentinel/shared';
 
 export const analysisRouter = new Hono();
@@ -254,6 +256,39 @@ analysisRouter.get('/:runId/stream', (c) => {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       await stream.writeSSE({ event: 'error', data: JSON.stringify({ error: message }) });
+    }
+  });
+});
+
+// ─── Retroactive Policy Surgery ───────────────────────────────────────────────
+// Opus synthesizes a deterministic policy that would have blocked a past
+// bypass, validated against all clean history + quantified counterfactual.
+
+analysisRouter.post('/:runId/retroactive-surgery', (c) => {
+  const runId = c.req.param('runId');
+  return streamSSE(c, async (stream) => {
+    try {
+      const { response } = await performSurgery(
+        {
+          runId,
+          onThinkingDelta: (delta) => {
+            stream.writeSSE({ event: 'thinking_delta', data: delta }).catch(() => {});
+          },
+          onAttempt: (attempt, status, detail) => {
+            stream.writeSSE({
+              event: 'attempt',
+              data: JSON.stringify({ attempt, status, detail: detail?.slice(0, 400) }),
+            }).catch(() => {});
+          },
+        },
+        getActivePolicies(),
+      );
+
+      await stream.writeSSE({ event: 'result', data: JSON.stringify(response) });
+      await stream.writeSSE({ event: 'done', data: JSON.stringify({ attempts: response.attempts }) });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await stream.writeSSE({ event: 'error', data: JSON.stringify({ error: msg }) });
     }
   });
 });

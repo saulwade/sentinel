@@ -74,6 +74,41 @@ interface Policy {
   severity: string;
   enabled: boolean;
   conditions: unknown;
+  when?: unknown[];
+  reasoning?: string;
+  source?: string;
+  createdAt?: number;
+}
+
+// ─── Retroactive Surgery types (mirror @sentinel/shared/retroactive) ──────────
+
+interface SurgeryAffectedRun {
+  runId: string;
+  eventSeq: number;
+  tool: string;
+  estimatedImpact?: number;
+}
+interface SurgeryCounterfactual {
+  wouldHaveBlockedCount: number;
+  additionalMoneyInterdicted: number;
+  affectedRuns: SurgeryAffectedRun[];
+  totalRunsAnalyzed: number;
+}
+interface SurgeryBypass {
+  runId: string;
+  seq: number;
+  tool: string;
+  args: Record<string, unknown>;
+  verdict: string;
+  reasoning: string;
+}
+interface SurgeryResult {
+  policy: Policy;
+  bypassEvent: SurgeryBypass;
+  counterfactual: SurgeryCounterfactual;
+  attempts: number;
+  thinkingTokens?: number;
+  contextTokens?: number;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -157,6 +192,15 @@ export default function Replay({
   const [synthPreviews, setSynthPreviews] = useState<Map<number, Policy>>(new Map());
   const [synthLoading, setSynthLoading] = useState<number | null>(null);
   const [adoptedIds, setAdoptedIds] = useState<Set<string>>(new Set());
+
+  // Retroactive Surgery state
+  const [surgeryOpen, setSurgeryOpen] = useState(false);
+  const [surgeryRunning, setSurgeryRunning] = useState(false);
+  const [surgeryThinking, setSurgeryThinking] = useState("");
+  const [surgeryAttempt, setSurgeryAttempt] = useState<{ n: number; status: string; detail?: string } | null>(null);
+  const [surgeryResult, setSurgeryResult] = useState<SurgeryResult | null>(null);
+  const [surgeryError, setSurgeryError] = useState<string | null>(null);
+  const [surgeryAdopted, setSurgeryAdopted] = useState(false);
 
   useEffect(() => {
     if (!runId || !visible) return;
@@ -315,6 +359,75 @@ export default function Replay({
     } catch {}
   }
 
+  // ─── Retroactive Surgery ─────────────────────────────────────────────────
+  async function runSurgery() {
+    if (!runId || surgeryRunning) return;
+    setSurgeryOpen(true);
+    setSurgeryRunning(true);
+    setSurgeryThinking("");
+    setSurgeryAttempt(null);
+    setSurgeryResult(null);
+    setSurgeryError(null);
+    setSurgeryAdopted(false);
+
+    try {
+      const res = await fetch(`${ENGINE}/analysis/${runId}/retroactive-surgery`, { method: "POST" });
+      if (!res.body) throw new Error("no response body");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const frames = buffer.split("\n\n");
+        buffer = frames.pop() ?? "";
+
+        for (const frame of frames) {
+          const lines = frame.split("\n");
+          let eventName = "message";
+          let data = "";
+          for (const line of lines) {
+            if (line.startsWith("event:")) eventName = line.slice(6).trim();
+            else if (line.startsWith("data:")) data += line.slice(5).trim();
+          }
+          if (!data) continue;
+
+          if (eventName === "thinking_delta") {
+            setSurgeryThinking((prev) => prev + data);
+          } else if (eventName === "attempt") {
+            try {
+              const a = JSON.parse(data);
+              setSurgeryAttempt({ n: a.attempt, status: a.status, detail: a.detail });
+            } catch {}
+          } else if (eventName === "result") {
+            try { setSurgeryResult(JSON.parse(data)); } catch { setSurgeryError("failed to parse result"); }
+          } else if (eventName === "error") {
+            try { setSurgeryError(JSON.parse(data).error ?? data); } catch { setSurgeryError(data); }
+          }
+        }
+      }
+    } catch (e) {
+      setSurgeryError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSurgeryRunning(false);
+    }
+  }
+
+  async function adoptSurgeryPolicy() {
+    if (!surgeryResult) return;
+    try {
+      const res = await fetch(`${ENGINE}/policies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(surgeryResult.policy),
+      });
+      if (res.ok) setSurgeryAdopted(true);
+    } catch {}
+  }
+
   if (!runId) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
@@ -343,6 +456,17 @@ export default function Replay({
   }
 
   const currentEvt = snap?.events.find((e) => e.seq === cursor);
+
+  // Does this run have a Pre-cog bypass (BLOCK/PAUSE not caught by any policy)?
+  // If yes, "Fix Retroactively" is available.
+  const hasBypass = events.some((ev, i) => {
+    if (ev.type !== "decision") return false;
+    const p = ev.payload as { verdict?: string; source?: string };
+    if (p.source !== "pre-cog") return false;
+    if (p.verdict !== "BLOCK" && p.verdict !== "PAUSE") return false;
+    const prev = events[i - 1];
+    return prev?.type === "tool_call";
+  });
 
   return (
     <div className="flex flex-col h-full overflow-y-auto" style={{ background: "#0A0A0D" }}>
@@ -542,17 +666,31 @@ export default function Replay({
               </span>
             )}
           </div>
-          {!analysis && (
-            <button
-              onClick={startAnalysis}
-              disabled={analysisLoading}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono font-medium transition-all active:scale-95 hover:brightness-110 disabled:opacity-50"
-              style={{ background: "rgba(167,139,250,0.1)", color: "#A78BFA", border: "1px solid rgba(167,139,250,0.3)" }}
-            >
-              <span className={analysisLoading ? "animate-spin" : ""}>◈</span>
-              {analysisLoading ? "Analyzing…" : "Analyze Run →"}
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {hasBypass && (
+              <button
+                onClick={runSurgery}
+                disabled={surgeryRunning}
+                title="Opus synthesizes a deterministic policy that would have blocked this bypass — validated against all clean history"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono font-medium transition-all active:scale-95 hover:brightness-110 disabled:opacity-50"
+                style={{ background: "rgba(255,90,90,0.08)", color: "#FF5A5A", border: "1px solid rgba(255,90,90,0.25)" }}
+              >
+                <span className={surgeryRunning ? "animate-spin" : ""}>🔧</span>
+                {surgeryRunning ? "Operating…" : "Fix Retroactively"}
+              </button>
+            )}
+            {!analysis && (
+              <button
+                onClick={startAnalysis}
+                disabled={analysisLoading}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono font-medium transition-all active:scale-95 hover:brightness-110 disabled:opacity-50"
+                style={{ background: "rgba(167,139,250,0.1)", color: "#A78BFA", border: "1px solid rgba(167,139,250,0.3)" }}
+              >
+                <span className={analysisLoading ? "animate-spin" : ""}>◈</span>
+                {analysisLoading ? "Analyzing…" : "Analyze Run →"}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Thinking stream */}
@@ -648,6 +786,140 @@ export default function Replay({
           </div>
         )}
       </div>
+
+      {/* ── Retroactive Surgery panel ────────────────────────────────── */}
+      {surgeryOpen && (
+        <div className="shrink-0 border-b" style={{ borderColor: "#262630", background: "#0D0D12" }}>
+          <div className="px-4 py-2.5 flex items-center gap-2" style={{ borderBottom: "1px solid #1C1C24" }}>
+            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(255,90,90,0.12)", color: "#FF5A5A", border: "1px solid rgba(255,90,90,0.3)" }}>
+              RETROACTIVE SURGERY
+            </span>
+            <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
+              Opus 4.7 · 1M context over clean history
+            </span>
+            <button
+              onClick={() => setSurgeryOpen(false)}
+              className="ml-auto text-[10px] font-mono px-1.5 py-0.5 rounded transition-all hover:brightness-150"
+              style={{ color: "#8A8A93", background: "#1C1C24", border: "1px solid #262630" }}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="px-4 py-3 space-y-3">
+            {/* Attempt ticker */}
+            {surgeryAttempt && (
+              <div className="flex items-center gap-2 text-[10px] font-mono" style={{ color: "#A78BFA" }}>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#A78BFA] animate-pulse" />
+                Attempt {surgeryAttempt.n}/3 ·{" "}
+                {surgeryAttempt.status === "thinking" && "Opus reasoning over full history"}
+                {surgeryAttempt.status === "validating" && "Validating against 100+ clean tool calls"}
+                {surgeryAttempt.status === "retry" && <span style={{ color: "#F7B955" }}>retrying with feedback</span>}
+              </div>
+            )}
+            {surgeryAttempt?.status === "retry" && surgeryAttempt.detail && (
+              <div className="text-[10px] font-mono px-3 py-2 rounded" style={{ background: "#14141A", color: "#F7B955", border: "1px solid rgba(247,185,85,0.2)" }}>
+                {surgeryAttempt.detail}
+              </div>
+            )}
+
+            {/* Thinking tail */}
+            {surgeryRunning && surgeryThinking && (
+              <p className="text-[10px] font-mono leading-relaxed" style={{ color: "#A78BFA", opacity: 0.55 }}>
+                {surgeryThinking.slice(-300)}
+              </p>
+            )}
+
+            {surgeryError && (
+              <div className="rounded-lg px-3 py-2.5" style={{ background: "rgba(255,90,90,0.05)", border: "1px solid rgba(255,90,90,0.25)" }}>
+                <p className="text-xs font-mono" style={{ color: "#FF5A5A" }}>{surgeryError}</p>
+              </div>
+            )}
+
+            {surgeryResult && (
+              <>
+                {/* Bypass reference */}
+                <div className="rounded-lg px-3 py-2.5" style={{ background: "#14141A", border: "1px solid #262630" }}>
+                  <div className="text-[9px] font-mono uppercase tracking-widest mb-1" style={{ color: "#8A8A93" }}>
+                    Bypass being fixed · seq {surgeryResult.bypassEvent.seq}
+                  </div>
+                  <div className="text-[11px] font-mono" style={{ color: "#F5F5F7" }}>
+                    <code>{surgeryResult.bypassEvent.tool}</code> · {surgeryResult.bypassEvent.verdict}
+                  </div>
+                  <p className="text-[10px] font-mono mt-1 leading-relaxed" style={{ color: "#8A8A93" }}>
+                    {surgeryResult.bypassEvent.reasoning}
+                  </p>
+                </div>
+
+                {/* Synthesized policy */}
+                <div className="rounded-lg px-3 py-2.5" style={{ background: "rgba(255,90,90,0.04)", border: "1px solid rgba(255,90,90,0.3)" }}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded" style={{ background: surgeryResult.policy.action === "block" ? "rgba(255,90,90,0.15)" : "rgba(247,185,85,0.15)", color: surgeryResult.policy.action === "block" ? "#FF5A5A" : "#F7B955" }}>
+                      {surgeryResult.policy.action.toUpperCase()}
+                    </span>
+                    <span className="text-[11px] font-mono font-semibold" style={{ color: "#F5F5F7" }}>
+                      {surgeryResult.policy.name}
+                    </span>
+                    <span className="ml-auto text-[9px] font-mono" style={{ color: "#8A8A93" }}>
+                      validated in {surgeryResult.attempts} attempt{surgeryResult.attempts > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <p className="text-[10px] font-mono leading-relaxed" style={{ color: "#8A8A93" }}>
+                    {surgeryResult.policy.description}
+                  </p>
+                </div>
+
+                {/* Counterfactual quantification */}
+                <div className="rounded-lg px-3 py-2.5" style={{ background: "rgba(45,212,164,0.05)", border: "1px solid rgba(45,212,164,0.25)" }}>
+                  <div className="text-[9px] font-mono uppercase tracking-widest mb-1" style={{ color: "#2DD4A4" }}>
+                    Counterfactual · if you had adopted this earlier
+                  </div>
+                  {surgeryResult.counterfactual.wouldHaveBlockedCount === 0 ? (
+                    <p className="text-[11px] font-mono leading-relaxed" style={{ color: "#F5F5F7" }}>
+                      Would have blocked the original bypass exclusively — no other historical calls match. Surgical precision, zero collateral.
+                    </p>
+                  ) : (
+                    <p className="text-[11px] font-mono leading-relaxed" style={{ color: "#F5F5F7" }}>
+                      Would have also caught{" "}
+                      <strong style={{ color: "#2DD4A4" }}>
+                        {surgeryResult.counterfactual.wouldHaveBlockedCount} additional attack{surgeryResult.counterfactual.wouldHaveBlockedCount > 1 ? "s" : ""}
+                      </strong>
+                      {surgeryResult.counterfactual.additionalMoneyInterdicted > 0 && (
+                        <> worth <strong style={{ color: "#2DD4A4" }}>${surgeryResult.counterfactual.additionalMoneyInterdicted.toLocaleString()}</strong></>
+                      )}{" "}
+                      across {surgeryResult.counterfactual.affectedRuns.length} other run{surgeryResult.counterfactual.affectedRuns.length !== 1 ? "s" : ""}.
+                    </p>
+                  )}
+                  {surgeryResult.counterfactual.affectedRuns.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {surgeryResult.counterfactual.affectedRuns.map((r, i) => (
+                        <span key={i} className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(45,212,164,0.1)", color: "#2DD4A4" }}>
+                          run {r.runId.slice(0, 6)} · seq {r.eventSeq}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={adoptSurgeryPolicy}
+                    disabled={surgeryAdopted}
+                    className="px-3 py-1.5 rounded text-xs font-mono font-medium transition-all active:scale-95 hover:brightness-110 disabled:opacity-60"
+                    style={{ background: surgeryAdopted ? "#2DD4A4" : "#A78BFA", color: "#0A0A0D" }}
+                  >
+                    {surgeryAdopted ? "✓ Adopted" : "Adopt Policy →"}
+                  </button>
+                  <span className="text-[9px] font-mono" style={{ color: "#5A5A63" }}>
+                    ~{surgeryResult.contextTokens?.toLocaleString()} tokens read · ~{surgeryResult.thinkingTokens} thinking tokens
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Fork comparison (appears after branching) ─────────────────── */}
       {(forkResult || forking) && (

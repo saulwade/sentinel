@@ -568,7 +568,7 @@ Leyenda: `[ ]` pendiente · `[x]` hecho · ⚠️ Opus 4.7 · ⏱️ duración e
   - [ ] Cada blind-spot tiene "Adopt Suggested Policy" button (reusa synthesize-from-text)
   - [ ] **Lo que pushea de Opus:** auto-reflexión sobre su propio set de reglas
 
-- [ ] **8.3 Retroactive Policy Surgery** ⏱️ 3h · ⚠️ Opus 4.7 · **P0**
+- [x] **8.3 Retroactive Policy Surgery** ⏱️ 3h · ⚠️ Opus 4.7 · **P0**
   - [ ] En Replay, sobre un run con bypass: botón "Fix this retroactively"
   - [ ] `POST /analysis/:runId/retroactive-policy` — Opus lee TODOS los eventos de TODOS los runs + el bypass específico, emite una policy que:
     1. Hubiera bloqueado ese bypass

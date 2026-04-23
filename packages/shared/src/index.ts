@@ -4,3 +4,4 @@ export * from './analysis.js';
 export * from './redteam.js';
 export * from './ask.js';
 export * from './drift.js';
+export * from './retroactive.js';
