@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import AttackChain from "./AttackChain";
 
 import { ENGINE } from "../lib/engine";
@@ -249,6 +249,10 @@ export default function Replay({
   const [intelligenceThinking, setIntelligenceThinking] = useState("");
   const [boardExpanded, setBoardExpanded] = useState(false);
 
+  // Active stream refs for cleanup on unmount / run change
+  const analysisSourceRef = useRef<EventSource | null>(null);
+  const intelligenceControllerRef = useRef<AbortController | null>(null);
+
   // Retroactive Surgery state
   const [surgeryOpen, setSurgeryOpen] = useState(false);
   const [surgeryRunning, setSurgeryRunning] = useState(false);
@@ -260,12 +264,19 @@ export default function Replay({
 
   useEffect(() => {
     if (!runId || !visible) return;
+    // Abort any streams from the previous run
+    analysisSourceRef.current?.close();
+    analysisSourceRef.current = null;
+    intelligenceControllerRef.current?.abort();
+    intelligenceControllerRef.current = null;
     setForkResult(null);
     setOriginalBlast(null);
     setForkBlast(null);
     setAnalysis(null);
+    setAnalysisLoading(false);
     setAnalysisThinking("");
     setIntelligence(null);
+    setIntelligenceLoading(false);
     setIntelligenceThinking("");
     setBoardExpanded(false);
     setSynthPreviews(new Map());
@@ -277,6 +288,17 @@ export default function Replay({
         if (evts.length > 0) setCursor(evts[evts.length - 1].seq);
       });
   }, [runId, visible]);
+
+  // Clean up any active streams on unmount — avoids leaks and stray
+  // state updates after the component is gone.
+  useEffect(() => {
+    return () => {
+      analysisSourceRef.current?.close();
+      analysisSourceRef.current = null;
+      intelligenceControllerRef.current?.abort();
+      intelligenceControllerRef.current = null;
+    };
+  }, []);
 
   // Auto Demo: trigger analysis automatically when signaled from Shell
   useEffect(() => {
@@ -372,12 +394,15 @@ export default function Replay({
 
   function startAnalysis() {
     if (!runId || analysisLoading) return;
+    // Close any previous stream first
+    analysisSourceRef.current?.close();
     setAnalysisLoading(true);
     setAnalysis(null);
     setAnalysisThinking("");
     setSynthPreviews(new Map());
     setAdoptedIds(new Set());
     const es = new EventSource(`${ENGINE}/analysis/${runId}/stream`);
+    analysisSourceRef.current = es;
     es.addEventListener("thinking_delta", (e) => {
       setAnalysisThinking((prev) => prev + (e as MessageEvent).data);
     });
@@ -385,24 +410,30 @@ export default function Replay({
       setAnalysis(JSON.parse((e as MessageEvent).data) as RunAnalysis);
       setAnalysisLoading(false);
       es.close();
+      analysisSourceRef.current = null;
     });
-    es.addEventListener("done", () => { setAnalysisLoading(false); es.close(); });
-    es.addEventListener("error", () => { setAnalysisLoading(false); es.close(); });
+    es.addEventListener("done", () => { setAnalysisLoading(false); es.close(); analysisSourceRef.current = null; });
+    es.addEventListener("error", () => { setAnalysisLoading(false); es.close(); analysisSourceRef.current = null; });
   }
 
   async function startIntelligence() {
     if (!runId || intelligenceLoading) return;
+    // Abort any previous stream first
+    intelligenceControllerRef.current?.abort();
+    const controller = new AbortController();
+    intelligenceControllerRef.current = controller;
     setIntelligenceLoading(true);
     setIntelligenceThinking("");
     setIntelligence(null);
 
     try {
-      const res = await fetch(`${ENGINE}/analysis/${runId}/intelligence`, { method: "POST" });
+      const res = await fetch(`${ENGINE}/analysis/${runId}/intelligence`, { method: "POST", signal: controller.signal });
       if (!res.body) throw new Error("no response body");
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
       while (true) {
+        if (controller.signal.aborted) break;
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
@@ -425,8 +456,11 @@ export default function Replay({
         }
       }
     } catch {
-      // swallow
+      // swallow — either user-abort or network error
     } finally {
+      if (intelligenceControllerRef.current === controller) {
+        intelligenceControllerRef.current = null;
+      }
       setIntelligenceLoading(false);
     }
   }

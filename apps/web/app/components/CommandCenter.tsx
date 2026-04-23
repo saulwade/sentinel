@@ -280,21 +280,34 @@ export default function CommandCenter({ onNavigate, onRequestRun, executive = fa
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span
-                  className="text-2xl font-mono font-bold leading-none"
-                  style={{ color: trust ? gradeColor(trust.grade) : "#8A8A93" }}
-                >
-                  {loading ? "—" : score}
-                </span>
-                <span className="text-[9px] font-mono" style={{ color: "#8A8A93" }}>/ 100</span>
+                {loading && !trust ? (
+                  <>
+                    <div className="skeleton" style={{ width: 44, height: 24 }} />
+                    <span className="text-[9px] font-mono mt-1" style={{ color: "#8A8A93" }}>/ 100</span>
+                  </>
+                ) : (
+                  <>
+                    <span
+                      className="text-2xl font-mono font-bold leading-none"
+                      style={{ color: trust ? gradeColor(trust.grade) : "#8A8A93" }}
+                    >
+                      {score}
+                    </span>
+                    <span className="text-[9px] font-mono" style={{ color: "#8A8A93" }}>/ 100</span>
+                  </>
+                )}
               </div>
             </div>
-            <span
-              className="text-lg font-mono font-bold"
-              style={{ color: trust ? gradeColor(trust.grade) : "#8A8A93" }}
-            >
-              {trust?.grade ?? "—"}
-            </span>
+            {loading && !trust ? (
+              <div className="skeleton" style={{ width: 28, height: 22 }} />
+            ) : (
+              <span
+                className="text-lg font-mono font-bold"
+                style={{ color: trust ? gradeColor(trust.grade) : "#8A8A93" }}
+              >
+                {trust?.grade ?? "—"}
+              </span>
+            )}
           </div>
 
           {/* Score breakdown */}
