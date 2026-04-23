@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 
-const ENGINE = "http://localhost:3001";
+import { ENGINE } from "../lib/engine";
 
 interface Evidence {
   runId: string;
@@ -38,6 +38,70 @@ const SUGGESTIONS = [
 
 function newTurnId() {
   return `t_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
+const MCP_CONFIG = `{
+  "mcpServers": {
+    "sentinel": {
+      "command": "pnpm",
+      "args": ["-F", "@sentinel/engine", "mcp"],
+      "cwd": "/absolute/path/to/sentinel"
+    }
+  }
+}`;
+
+function McpCard() {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  function copy() {
+    navigator.clipboard.writeText(MCP_CONFIG).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #1C1C24" }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-2.5 text-left transition-all hover:brightness-125"
+        style={{ background: "#14141A" }}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-[10px]">◈</span>
+          <span className="text-xs font-mono font-semibold" style={{ color: "#F5F5F7" }}>
+            Also available in Claude Desktop
+          </span>
+          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.1)", color: "#A78BFA" }}>MCP</span>
+        </div>
+        <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="px-4 py-3 space-y-3" style={{ background: "#0D0D12", borderTop: "1px solid #1C1C24" }}>
+          <p className="text-xs font-mono leading-relaxed" style={{ color: "#8A8A93" }}>
+            Connect Sentinel to Claude Desktop — then ask about your security posture directly from Claude.
+          </p>
+          <p className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>
+            Add to <code style={{ color: "#A78BFA" }}>~/.claude/claude_desktop_config.json</code>:
+          </p>
+          <div className="relative rounded-lg overflow-hidden" style={{ background: "#0A0A0D", border: "1px solid #262630" }}>
+            <pre className="px-3 py-2.5 text-[10px] font-mono overflow-x-auto" style={{ color: "#7DD3FC" }}>{MCP_CONFIG}</pre>
+            <button
+              onClick={copy}
+              className="absolute top-2 right-2 px-2 py-0.5 rounded text-[9px] font-mono transition-all hover:brightness-125"
+              style={{ background: "#1C1C24", color: copied ? "#2DD4A4" : "#8A8A93", border: "1px solid #262630" }}
+            >
+              {copied ? "✓ Copied" : "Copy"}
+            </button>
+          </div>
+          <p className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>
+            Then: <code style={{ color: "#A78BFA" }}>cd apps/engine && pnpm mcp</code>
+          </p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function AskOpus() {
@@ -160,7 +224,7 @@ export default function AskOpus() {
 
       {/* ── Conversation ─────────────────────────────────────────────── */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
+        <div className="max-w-3xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-6">
           {showSuggestions && (
             <div className="space-y-4">
               <div className="text-center space-y-2">
@@ -176,7 +240,7 @@ export default function AskOpus() {
                   Opus reads your full operational history and answers like a CISO.
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {SUGGESTIONS.map((s) => (
                   <button
                     key={s}
@@ -188,6 +252,8 @@ export default function AskOpus() {
                   </button>
                 ))}
               </div>
+
+              <McpCard />
             </div>
           )}
 
@@ -198,7 +264,7 @@ export default function AskOpus() {
       </div>
 
       {/* ── Composer ─────────────────────────────────────────────────── */}
-      <div className="border-t shrink-0 px-5 py-3" style={{ borderColor: "#262630", background: "#0D0D12" }}>
+      <div className="border-t shrink-0 px-3 sm:px-5 py-3" style={{ borderColor: "#262630", background: "#0D0D12" }}>
         <div className="max-w-3xl mx-auto flex gap-2">
           <textarea
             value={input}

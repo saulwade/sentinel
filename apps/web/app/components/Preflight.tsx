@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 
-const ENGINE = "http://localhost:3001";
+import { ENGINE } from "../lib/engine";
 
 interface SynthesizedScenario {
   id: string;
@@ -16,8 +16,10 @@ interface SynthesizedScenario {
   toolChain: Array<{ tool: string; args: Record<string, unknown> }>;
 }
 
+const SCENARIO_PLACEHOLDER = "A tier-1 customer support agent with access to customer PII, refund processing up to $50k, and email sending. It handles billing disputes and account questions.";
+
 function ScenarioBuilder({ onLaunched }: { onLaunched?: (runId: string, label: string, task: string) => void }) {
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(SCENARIO_PLACEHOLDER);
   const [synthesizing, setSynthesizing] = useState(false);
   const [scenario, setScenario] = useState<SynthesizedScenario | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +68,7 @@ function ScenarioBuilder({ onLaunched }: { onLaunched?: (runId: string, label: s
 
   return (
     <div
-      className="mx-5 mt-4 p-4 rounded-xl"
+      className="mx-3 sm:mx-5 mt-4 p-3 sm:p-4 rounded-xl"
       style={{ background: "#0D0D12", border: "1px solid #262630" }}
     >
       <div className="flex items-center gap-2 mb-2">
@@ -84,7 +86,7 @@ function ScenarioBuilder({ onLaunched }: { onLaunched?: (runId: string, label: s
       <textarea
         value={description}
         onChange={(e) => setDescription(e.target.value)}
-        placeholder="Example: A tier-1 customer support agent with access to customer PII, refund processing up to $50k, and email sending. It handles billing disputes and account questions."
+        placeholder={SCENARIO_PLACEHOLDER}
         rows={3}
         className="w-full px-3 py-2 rounded text-xs font-mono resize-none"
         style={{ background: "#14141A", color: "#F5F5F7", border: "1px solid #262630", outline: "none" }}
@@ -136,7 +138,7 @@ function ScenarioBuilder({ onLaunched }: { onLaunched?: (runId: string, label: s
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div className="px-3 py-2 rounded" style={{ background: "#14141A", border: "1px solid #262630" }}>
               <div className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
                 Customers
@@ -257,7 +259,7 @@ function severityColor(s: string) {
 }
 
 function AgentDnaSection({ onLaunched }: { onLaunched?: (runId: string, label: string, task: string) => void }) {
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(DNA_PLACEHOLDER);
   const [analyzing, setAnalyzing] = useState(false);
   const [thinking, setThinking] = useState("");
   const [showThinking, setShowThinking] = useState(false);
@@ -338,7 +340,7 @@ function AgentDnaSection({ onLaunched }: { onLaunched?: (runId: string, label: s
 
   return (
     <div
-      className="mx-5 mt-4 p-4 rounded-xl"
+      className="mx-3 sm:mx-5 mt-4 p-3 sm:p-4 rounded-xl"
       style={{ background: "#0D0D12", border: "1px solid #262630" }}
     >
       <div className="flex items-center gap-2 mb-2">
@@ -550,7 +552,7 @@ export default function Preflight({ onLaunchedCustomRun }: { onLaunchedCustomRun
   return (
     <div className="flex flex-col h-full">
       {/* Controls */}
-      <div className="px-5 py-3 border-b shrink-0 flex items-center gap-4" style={{ borderColor: "#262630" }}>
+      <div className="px-3 sm:px-5 py-3 border-b shrink-0 flex flex-wrap items-center gap-x-4 gap-y-2" style={{ borderColor: "#262630" }}>
         <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
           Pre-flight Simulator
         </span>
@@ -629,10 +631,10 @@ export default function Preflight({ onLaunchedCustomRun }: { onLaunchedCustomRun
       {/* Grade card */}
       {result && (
         <div
-          className="px-5 py-5 border-t shrink-0 animate-fade-in"
+          className="px-3 sm:px-5 py-4 sm:py-5 border-t shrink-0 animate-fade-in"
           style={{ borderColor: "#262630", background: "#14141A" }}
         >
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             <div className="flex flex-col items-center">
               <div
                 className="text-5xl font-mono font-bold"

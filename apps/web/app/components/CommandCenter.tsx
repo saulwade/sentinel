@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { exportSecurityReport } from "./securityReportPdf";
 
-const ENGINE = "http://localhost:3001";
+import { ENGINE } from "../lib/engine";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -96,6 +96,42 @@ function timeAgo(ts: number) {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
+
+function RunSparkline({ runs }: { runs: RunSummary[] }) {
+  if (runs.length === 0) return null;
+  const pts = runs.slice().reverse().slice(0, 20);
+  const W = 120, H = 28, gap = 4;
+  const barW = Math.max(3, Math.floor((W - gap * (pts.length - 1)) / pts.length));
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[9px] font-mono uppercase tracking-widest shrink-0" style={{ color: "#8A8A93" }}>
+        Last {pts.length} runs
+      </span>
+      <svg width={W} height={H} className="shrink-0">
+        {pts.map((r, i) => {
+          const interdicted = (r.blast?.actionsInterdicted ?? 0) > 0;
+          const color = interdicted ? "#2DD4A4" : "#FF5A5A";
+          const h = interdicted ? H : H / 2;
+          return (
+            <rect
+              key={r.runId}
+              x={i * (barW + gap)}
+              y={H - h}
+              width={barW}
+              height={h}
+              rx={1}
+              fill={color}
+              opacity={0.75}
+            />
+          );
+        })}
+      </svg>
+      <span className="text-[9px] font-mono" style={{ color: "#2DD4A4" }}>
+        {pts.filter((r) => (r.blast?.actionsInterdicted ?? 0) > 0).length} blocked
+      </span>
+    </div>
+  );
+}
 
 function StatCard({
   label, value, sub, accent, hero,
@@ -221,11 +257,11 @@ export default function CommandCenter({ onNavigate, onRequestRun, executive = fa
 
   return (
     <div className="flex flex-col h-full overflow-y-auto" style={{ background: "#0A0A0D" }}>
-      <div className="max-w-5xl mx-auto w-full px-6 py-6 space-y-6">
+      <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-4 sm:py-6 space-y-6">
 
         {/* ── Hero — Trust Score ──────────────────────────────────────── */}
         <div
-          className="flex items-center gap-8 p-6 rounded-xl"
+          className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8 p-4 sm:p-6 rounded-xl"
           style={{ background: "#0D0D12", border: "1px solid #262630" }}
         >
           {/* Score ring */}
@@ -341,7 +377,7 @@ export default function CommandCenter({ onNavigate, onRequestRun, executive = fa
         </div>
 
         {/* ── Stat cards ──────────────────────────────────────────────── */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard
             label={executive ? "Fraud Prevented" : "Potential Loss Prevented"}
             value={stats ? `$${stats.aggregate.totalMoneyInterdicted.toLocaleString()}` : "—"}
@@ -361,12 +397,53 @@ export default function CommandCenter({ onNavigate, onRequestRun, executive = fa
             sub={stats && !executive ? `${stats.policies.bySource.autoSynthesized} auto-synthesized` : executive && stats ? "protecting production" : undefined}
             accent="#818CF8"
           />
-          <StatCard
-            label={executive ? "Agent Sessions" : "Total runs"}
-            value={String(stats?.runs.total ?? "—")}
-            sub={stats?.runs.recent[0] ? timeAgo(stats.runs.recent[0].createdAt) : undefined}
-          />
+          <div className="flex flex-col gap-1 p-4 rounded-lg" style={{ background: "#0D0D12", border: "1px solid #262630" }}>
+            <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
+              {executive ? "Agent Sessions" : "Total runs"}
+            </span>
+            <span className="text-2xl font-mono font-bold" style={{ color: "#F5F5F7" }}>
+              {stats?.runs.total ?? "—"}
+            </span>
+            {stats?.runs.recent[0] && (
+              <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>
+                {timeAgo(stats.runs.recent[0].createdAt)}
+              </span>
+            )}
+            {stats && <RunSparkline runs={stats.runs.recent} />}
+          </div>
         </div>
+
+        {/* ── Empty state — no runs yet ───────────────────────────────── */}
+        {stats && stats.runs.total === 0 && (
+          <div
+            className="flex flex-col items-center justify-center gap-4 py-12 rounded-xl text-center"
+            style={{ background: "#0D0D12", border: "1px dashed #262630" }}
+          >
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center"
+              style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.2)" }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" strokeWidth="1.5">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+              </svg>
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-sm font-mono font-semibold" style={{ color: "#F5F5F7" }}>
+                No runs yet — see Sentinel in action
+              </p>
+              <p className="text-xs font-mono max-w-sm mx-auto leading-relaxed" style={{ color: "#8A8A93" }}>
+                Run a CEO Override attack and watch Sentinel intercept every malicious tool call in real time.
+              </p>
+            </div>
+            <button
+              onClick={runAgent}
+              className="px-5 py-2.5 rounded-xl text-sm font-mono font-bold transition-all active:scale-95 hover:brightness-110"
+              style={{ background: "#A78BFA", color: "#0A0A0D" }}
+            >
+              ▶  Start Demo — CEO Override attack
+            </button>
+          </div>
+        )}
 
         {/* ── Recent runs ─────────────────────────────────────────────── */}
         {stats && stats.runs.recent.length > 0 && (

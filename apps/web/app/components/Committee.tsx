@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
-const ENGINE = "http://localhost:3001";
+import { ENGINE } from "../lib/engine";
 
 // ─── Types (mirror @sentinel/shared/committee) ────────────────────────────────
 
@@ -61,7 +61,7 @@ export default function Committee({
   });
   const [fatalError, setFatalError] = useState<string | null>(null);
   const [phase, setPhase] = useState<"deliberating" | "synthesizing" | "done">("deliberating");
-  const [startedAt] = useState(Date.now());
+  const startedAt = useRef(Date.now()).current;
   const [durationMs, setDurationMs] = useState<number | null>(null);
 
   useEffect(() => {
@@ -181,17 +181,17 @@ export default function Committee({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6"
       style={{ background: "rgba(10,10,13,0.85)", backdropFilter: "blur(6px)" }}
       onClick={onClose}
     >
       <div
-        className="rounded-xl w-full max-w-[1100px] max-h-[90vh] flex flex-col"
+        className="rounded-xl w-full max-w-[min(1100px,calc(100vw-24px))] max-h-[90vh] flex flex-col"
         style={{ background: "#0D0D12", border: "1px solid #262630", boxShadow: "0 40px 80px rgba(0,0,0,0.6)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-3 border-b shrink-0" style={{ borderColor: "#262630" }}>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 sm:px-5 py-3 border-b shrink-0" style={{ borderColor: "#262630" }}>
           <span className="text-lg">🏛️</span>
           <span className="text-sm font-mono font-semibold" style={{ color: "#F5F5F7" }}>
             Security Committee
@@ -233,7 +233,7 @@ export default function Committee({
           )}
 
           {/* Three personas grid */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {(["ciso", "legal", "product"] as Persona[]).map((p) => {
               const meta = PERSONA_META[p];
               const op = opinions.get(p);

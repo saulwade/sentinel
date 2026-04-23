@@ -304,7 +304,11 @@ function parsePolicy(raw: string, bypass: RetroactiveBypassEvent): Policy {
   } catch {
     const m = clean.match(/\{[\s\S]*\}/);
     if (!m) throw new Error('Opus returned no JSON object');
-    obj = JSON.parse(m[0]);
+    try {
+      obj = JSON.parse(m[0]);
+    } catch {
+      throw new Error('Opus returned unparseable JSON');
+    }
   }
 
   if (!Array.isArray(obj.when) || obj.when.length === 0) {

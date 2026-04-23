@@ -36,7 +36,7 @@ export default function OnboardingOverlay({ onStartDemo, onSkip }: OnboardingOve
       style={{ background: "rgba(10,10,13,0.88)", backdropFilter: "blur(6px)", zIndex: 60 }}
     >
       <div
-        className="flex flex-col gap-8 p-8 rounded-2xl max-w-2xl w-full mx-4"
+        className="flex flex-col gap-4 sm:gap-8 p-6 sm:p-8 rounded-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
         style={{ background: "#0D0D12", border: "1px solid #262630" }}
       >
         {/* Header */}

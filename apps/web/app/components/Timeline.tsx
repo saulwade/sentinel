@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 
-const ENGINE = "http://localhost:3001";
+import { ENGINE } from "../lib/engine";
 
 interface AgentEvent {
   id: string;
@@ -198,9 +198,9 @@ export default function Timeline({ runId, visible }: { runId: string | null; vis
       </div>
 
       {/* ── Body ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-col lg:flex-row flex-1 min-h-0">
         {/* State panel */}
-        <div className="flex-1 overflow-y-auto border-r p-4" style={{ borderColor: "#262630" }}>
+        <div className="flex-1 min-w-0 overflow-y-auto lg:border-r border-b lg:border-b-0 p-4" style={{ borderColor: "#262630" }}>
           {/* Current event card */}
           {currentEvt && (
             <div
@@ -241,7 +241,7 @@ export default function Timeline({ runId, visible }: { runId: string | null; vis
           {snap && (
             <div className="space-y-4">
               {/* Summary counters */}
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
                   { label: "Emails", value: snap.world.inbox.length, color: "#F5F5F7" },
                   { label: "Read", value: snap.world.inbox.filter((e) => e.read).length, color: "#8A8A93" },
@@ -308,7 +308,7 @@ export default function Timeline({ runId, visible }: { runId: string | null; vis
         </div>
 
         {/* Edit panel */}
-        <div className="w-[420px] shrink-0 flex flex-col p-4">
+        <div className="w-full lg:w-[420px] lg:shrink-0 flex flex-col p-4">
           <div className="text-[10px] font-mono uppercase tracking-widest mb-2" style={{ color: "#8A8A93" }}>
             Edit World State
           </div>

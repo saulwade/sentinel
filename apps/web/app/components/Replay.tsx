@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import AttackChain from "./AttackChain";
 
-const ENGINE = "http://localhost:3001";
+import { ENGINE } from "../lib/engine";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -159,6 +159,29 @@ function severityColor(s: string) {
   if (s === "critical") return "#FF5A5A";
   if (s === "high") return "#F7B955";
   return "#2DD4A4";
+}
+
+// ─── Share button ─────────────────────────────────────────────────────────────
+
+function ShareButton({ runId }: { runId: string }) {
+  const [copied, setCopied] = useState(false);
+  function share() {
+    const url = `${window.location.origin}/share/${runId}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+  return (
+    <button
+      onClick={share}
+      className="text-[10px] font-mono px-2 py-0.5 rounded transition-all hover:brightness-125"
+      style={{ background: "#14141A", color: copied ? "#2DD4A4" : "#8A8A93", border: "1px solid #262630" }}
+      title="Copy shareable link to this run"
+    >
+      {copied ? "✓ Copied" : "⤢ Share"}
+    </button>
+  );
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -481,6 +504,9 @@ export default function Replay({
           {chainView === "timeline" && (
             <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>← → to scrub</span>
           )}
+          {runId && (
+            <ShareButton runId={runId} />
+          )}
           {/* View toggle */}
           <div className="flex rounded overflow-hidden ml-auto" style={{ border: "1px solid #262630" }}>
             <button
@@ -551,9 +577,9 @@ export default function Replay({
       </div>
 
       {/* ── World state + Edit panel ──────────────────────────────────── */}
-      <div className="flex shrink-0" style={{ minHeight: "280px", borderBottom: "1px solid #262630" }}>
+      <div className="flex flex-col lg:flex-row shrink-0" style={{ borderBottom: "1px solid #262630" }}>
         {/* World state */}
-        <div className="flex-1 overflow-y-auto p-4 border-r" style={{ borderColor: "#262630" }}>
+        <div className="flex-1 min-w-0 overflow-y-auto p-4 lg:border-r border-b lg:border-b-0" style={{ borderColor: "#262630", minHeight: "280px" }}>
           {currentEvt && (
             <div
               className="mb-3 p-2.5 rounded-lg"
@@ -619,7 +645,7 @@ export default function Replay({
         </div>
 
         {/* Edit + fork */}
-        <div className="w-[380px] shrink-0 flex flex-col p-4">
+        <div className="w-full lg:w-[380px] lg:shrink-0 flex flex-col p-4">
           <div className="text-[10px] font-mono uppercase tracking-widest mb-1" style={{ color: "#8A8A93" }}>
             Edit World State
           </div>

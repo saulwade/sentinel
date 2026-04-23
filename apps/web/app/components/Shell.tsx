@@ -8,6 +8,7 @@ import Preflight from "./Preflight";
 import RedTeam from "./RedTeam";
 import AskOpus from "./AskOpus";
 import OnboardingOverlay from "./OnboardingOverlay";
+import { ENGINE } from "../lib/engine";
 
 const TABS = ["Command Center", "Runtime", "Replay", "Pre-flight", "Red Team", "Ask"] as const;
 type Tab = (typeof TABS)[number];
@@ -75,7 +76,7 @@ function HelpModal({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="rounded-xl p-6 w-[440px] animate-fade-in"
+        className="rounded-xl p-6 w-[min(440px,calc(100vw-1.5rem))] mx-3 animate-fade-in"
         style={{ background: "#14141A", border: "1px solid #262630", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -144,11 +145,12 @@ export default function Shell() {
   const [executive, setExecutive] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [engineOnline, setEngineOnline] = useState<boolean | null>(null);
 
   async function handleReset() {
     setResetting(true);
     try {
-      await fetch("http://localhost:3001/admin/reset", { method: "POST" });
+      await fetch(`${ENGINE}/admin/reset`, { method: "POST" });
       setRunId(null);
       setAgentLabel("Sentinel Agent");
       setTaskDescription(null);
@@ -166,6 +168,25 @@ export default function Shell() {
       if (!localStorage.getItem("sentinel_onboarding_seen")) setShowOnboarding(true);
       if (localStorage.getItem("sentinel_view_mode") === "executive") setExecutive(true);
     } catch {}
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function ping() {
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 3000);
+      try {
+        const res = await fetch(`${ENGINE}/health`, { signal: controller.signal });
+        if (!cancelled) setEngineOnline(res.ok);
+      } catch {
+        if (!cancelled) setEngineOnline(false);
+      } finally {
+        clearTimeout(t);
+      }
+    }
+    ping();
+    const t = setInterval(ping, 30_000);
+    return () => { cancelled = true; clearInterval(t); };
   }, []);
 
   const toggleExecutive = useCallback(() => {
@@ -239,7 +260,7 @@ export default function Shell() {
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div
-        className="flex items-center gap-1 px-4 py-2 border-b shrink-0"
+        className="flex items-center gap-1 flex-wrap px-4 py-2 border-b shrink-0"
         style={{ borderColor: "#262630" }}
       >
         {/* Logo */}
@@ -320,6 +341,19 @@ export default function Shell() {
                 {runId.slice(0, 8)}
               </span>
             </>
+          )}
+          {engineOnline !== null && (
+            <span
+              className="flex items-center gap-1.5 text-[10px] font-mono"
+              style={{ color: engineOnline ? "#2DD4A4" : "#FF5A5A" }}
+              title={engineOnline ? "Engine is reachable" : `Engine offline — run: cd apps/engine && pnpm dev`}
+            >
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ background: engineOnline ? "#2DD4A4" : "#FF5A5A", boxShadow: engineOnline ? "0 0 6px rgba(45,212,164,0.6)" : undefined }}
+              />
+              {engineOnline ? "LIVE" : "OFFLINE"}
+            </span>
           )}
           {showResetConfirm ? (
             <div className="flex items-center gap-1">

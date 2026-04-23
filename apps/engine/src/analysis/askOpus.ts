@@ -169,7 +169,11 @@ function parseAskResponse(raw: string, validRunIds: Set<string>): AskResponse {
     // Last-ditch: try to find the first {...} block
     const match = clean.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('Opus returned no JSON object');
-    obj = JSON.parse(match[0]);
+    try {
+      obj = JSON.parse(match[0]);
+    } catch {
+      throw new Error('Opus returned unparseable JSON');
+    }
   }
 
   const evidenceRaw = Array.isArray(obj.evidence) ? obj.evidence : [];

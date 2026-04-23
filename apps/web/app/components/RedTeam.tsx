@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Arena from "./Arena";
 
-const ENGINE = "http://localhost:3001";
+import { ENGINE } from "../lib/engine";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -419,6 +419,19 @@ export default function RedTeam() {
     } catch {}
   }
 
+  async function importPolicies(file: File) {
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+      await fetch(`${ENGINE}/policies/import`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(json),
+      });
+      fetchPolicies();
+    } catch {}
+  }
+
   const totalIterations = 3;
   const iters = [1, 2, 3];
 
@@ -544,9 +557,9 @@ export default function RedTeam() {
       </div>
 
       {/* ── Main body ─────────────────────────────────────────────── */}
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-col lg:flex-row flex-1 min-h-0">
         {/* Attack list */}
-        <div className="flex-1 flex flex-col border-r min-h-0" style={{ borderColor: "#262630" }}>
+        <div className="flex-1 min-w-0 flex flex-col lg:border-r border-b lg:border-b-0 min-h-0" style={{ borderColor: "#262630" }}>
           <div
             className="px-4 py-2 text-[10px] font-mono uppercase tracking-widest shrink-0 flex items-center gap-2"
             style={{ color: "#8A8A93", borderBottom: "1px solid #262630" }}
@@ -634,7 +647,7 @@ export default function RedTeam() {
         </div>
 
         {/* Inspector + Policy catalog */}
-        <div className="w-[440px] shrink-0 flex flex-col min-h-0">
+        <div className="w-full lg:w-[440px] lg:shrink-0 flex flex-col min-h-0">
           {/* Inspector */}
           <div className="flex-1 overflow-y-auto border-b" style={{ borderColor: "#262630" }}>
             <div
@@ -914,13 +927,34 @@ export default function RedTeam() {
               </button>
               <button
                 onClick={exportPolicies}
-                title="Download all policies as JSON — version-control in Git"
+                title="Download all policies as JSON"
                 className="px-1.5 py-0.5 rounded text-[9px] font-mono transition-all hover:brightness-150"
                 style={{ color: "#8A8A93", background: "#1C1C24", border: "1px solid #262630" }}
               >
                 ↓ Export
               </button>
+              <label
+                title="Import policies from JSON file"
+                className="px-1.5 py-0.5 rounded text-[9px] font-mono transition-all hover:brightness-150 cursor-pointer"
+                style={{ color: "#8A8A93", background: "#1C1C24", border: "1px solid #262630" }}
+              >
+                ↑ Import
+                <input
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) importPolicies(f); e.target.value = ""; }}
+                />
+              </label>
             </div>
+            {policies.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-8 gap-2 text-center px-4">
+                <p className="text-xs font-mono font-semibold" style={{ color: "#F5F5F7" }}>No policies yet</p>
+                <p className="text-[10px] font-mono leading-relaxed" style={{ color: "#8A8A93" }}>
+                  Run a scenario → Investigate the attack → let Opus synthesize your first policy from the bypass
+                </p>
+              </div>
+            )}
             {policies.map((p) => (
               <div
                 key={p.id}
@@ -1004,7 +1038,7 @@ function DriftPanel({
 
   return (
     <div
-      className="fixed inset-y-0 right-0 w-[520px] z-40 flex flex-col shadow-2xl animate-slide-in-right"
+      className="fixed inset-y-0 right-0 w-[min(520px,100vw)] z-40 flex flex-col shadow-2xl animate-slide-in-right"
       style={{ background: "#0D0D12", borderLeft: "1px solid #262630" }}
     >
       {/* Header */}

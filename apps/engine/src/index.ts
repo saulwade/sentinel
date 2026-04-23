@@ -31,7 +31,7 @@ loadRunsFromDb();
 const app = new Hono();
 
 app.use('*', logger());
-app.use('*', cors({ origin: ['http://localhost:3000'] }));
+app.use('*', cors({ origin: (process.env.ALLOWED_ORIGINS ?? 'http://localhost:3000').split(',') }));
 
 app.get('/', (c) => c.json({ service: 'sentinel-engine', status: 'ok' }));
 app.get('/health', (c) => c.json({ ok: true, ts: Date.now() }));
@@ -55,6 +55,11 @@ app.route('/arena', arenaRouter);
 app.route('/agent-dna', agentDnaRouter);
 app.route('/committee', committeeRouter);
 app.route('/whatif', whatifRouter);
+
+if (!process.env.ANTHROPIC_API_KEY) {
+  console.error("[engine] ANTHROPIC_API_KEY is not set — Opus calls will fail");
+  process.exit(1);
+}
 
 const PORT = Number(process.env.PORT ?? 3001);
 

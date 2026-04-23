@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-const ENGINE = "http://localhost:3001";
+import { ENGINE } from "../lib/engine";
 
 // ─── Types (mirror @sentinel/shared/whatif) ───────────────────────────────────
 
@@ -90,7 +90,9 @@ export default function WhatIfSimulator({
             if (!data) continue;
             try {
               handleEvent(eventName, JSON.parse(data));
-            } catch { /* ignore */ }
+            } catch (e) {
+              console.warn("[whatif] SSE parse error:", e, data);
+            }
           }
         }
       } catch (e) {
@@ -210,29 +212,29 @@ export default function WhatIfSimulator({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6"
       style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[1400px] max-h-[92vh] rounded-2xl overflow-hidden flex flex-col"
+        className="w-full max-w-[min(1400px,calc(100vw-24px))] max-h-[92vh] rounded-2xl overflow-hidden flex flex-col"
         style={{ background: "#0E0E13", border: "1px solid #262630" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid #262630" }}>
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-y-3 px-4 sm:px-6 py-3 sm:py-4" style={{ borderBottom: "1px solid #262630" }}>
+          <div className="min-w-0">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">🧪</span>
-              <div>
-                <h2 className="text-lg font-mono font-semibold" style={{ color: "#F5F5F7" }}>What-If Simulator</h2>
-                <p className="text-[11px] font-mono" style={{ color: "#8A8A93" }}>
+              <span className="text-2xl shrink-0">🧪</span>
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-lg font-mono font-semibold" style={{ color: "#F5F5F7" }}>What-If Simulator</h2>
+                <p className="text-[11px] font-mono leading-snug" style={{ color: "#8A8A93" }}>
                   Opus generates 20 mutations · runs them against your current policies · proposes fixes
                 </p>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <span
               className="text-[10px] font-mono uppercase tracking-widest px-2 py-1 rounded"
               style={{
@@ -260,9 +262,9 @@ export default function WhatIfSimulator({
           </div>
         </div>
 
-        <div className="flex-1 grid grid-cols-[1.1fr_0.9fr] overflow-hidden">
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] overflow-hidden">
           {/* ─── Left: mutation grid ──────────────────────────────────────── */}
-          <div className="p-6 overflow-auto" style={{ borderRight: "1px solid #262630" }}>
+          <div className="p-4 sm:p-6 overflow-auto lg:border-r border-b lg:border-b-0" style={{ borderColor: "#262630" }}>
             <div className="flex items-center justify-between mb-3">
               <div className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
                 Adversarial Mutations
@@ -273,7 +275,7 @@ export default function WhatIfSimulator({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {Array.from({ length: 20 }).map((_, i) => {
                 const m = mutations[i];
                 const r = m ? results.get(m.id) : undefined;

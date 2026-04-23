@@ -36,16 +36,23 @@ redteamRouter.post('/adaptive', (c) => {
     type Body = { iterations?: number; attacksPerIteration?: number };
     const body: Body = await c.req.json<Body>().catch(() => ({} as Body));
 
-    await runAdaptiveRedTeam({
-      iterations: body.iterations,
-      attacksPerIteration: body.attacksPerIteration,
-      emit: async (event) => {
-        await stream.writeSSE({
-          event: event.kind,
-          data: JSON.stringify(event),
-        });
-      },
-    });
+    try {
+      await runAdaptiveRedTeam({
+        iterations: body.iterations,
+        attacksPerIteration: body.attacksPerIteration,
+        emit: async (event) => {
+          await stream.writeSSE({
+            event: event.kind,
+            data: JSON.stringify(event),
+          }).catch(() => {});
+        },
+      });
+    } catch (err) {
+      await stream.writeSSE({
+        event: 'error',
+        data: JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
+      }).catch(() => {});
+    }
   });
 });
 

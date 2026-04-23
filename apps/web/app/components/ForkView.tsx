@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const ENGINE = "http://localhost:3001";
+import { ENGINE } from "../lib/engine";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

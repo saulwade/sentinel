@@ -5,7 +5,7 @@ import FleetView, { type FleetAgent } from "./FleetView";
 import Committee from "./Committee";
 import WhatIfSimulator from "./WhatIfSimulator";
 
-const ENGINE = "http://localhost:3001";
+import { ENGINE } from "../lib/engine";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -618,7 +618,9 @@ export default function LiveView({
       }}
     >
       {/* ── Controls + Stats bar ─────────────────────────────────────── */}
-      <div className="flex items-center gap-4 px-5 py-2 border-b shrink-0" style={{ borderColor: "#262630" }}>
+      <div className="flex flex-col lg:flex-row lg:items-center gap-y-2 lg:gap-y-0 lg:gap-x-4 px-3 sm:px-5 py-2 border-b shrink-0" style={{ borderColor: "#262630" }}>
+        {/* Primary row: mode selectors (flatten into main row at lg+) */}
+        <div className="flex items-center gap-x-3 gap-y-2 flex-wrap lg:contents">
         {/* View mode selector */}
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid #262630" }}>
@@ -714,7 +716,10 @@ export default function LiveView({
             )}
           </div>
         )}
+        </div>
 
+        {/* Secondary row: toggles, status, stats, actions (flatten at lg+) */}
+        <div className="flex items-center gap-x-3 gap-y-2 flex-wrap lg:contents">
         {/* Narration toggle */}
         <div className="flex items-center gap-1.5">
           <button
@@ -812,6 +817,7 @@ export default function LiveView({
             ? "▶  Fleet Run"
             : "▶  Run"}
         </button>
+        </div>
       </div>
 
       {/* ── PAUSE banner ──────────────────────────────────────────────── */}
@@ -929,9 +935,9 @@ export default function LiveView({
 
       {/* ── Body (single mode) ────────────────────────────────────────── */}
       {!executive && (viewMode === "single" || fleetAgents.length === 0) && (
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-col lg:flex-row flex-1 min-h-0">
         {/* ── Action stream ─────────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col border-r min-h-0" style={{ borderColor: "#262630" }}>
+        <div className="flex-1 min-w-0 flex flex-col lg:border-r border-b lg:border-b-0 min-h-0" style={{ borderColor: "#262630" }}>
           <div
             className="px-4 py-2 text-[10px] font-mono uppercase tracking-widest shrink-0 flex items-center gap-2"
             style={{ color: "#8A8A93", borderBottom: "1px solid #262630" }}
@@ -1094,7 +1100,7 @@ export default function LiveView({
                 </span>
                 {isToolCall(ev) && (
                   <span className="font-mono text-[11px] truncate ml-auto max-w-[200px]" style={{ color: "#8A8A93" }}>
-                    {JSON.stringify(ev.payload.args).slice(0, 50)}
+                    {JSON.stringify(ev.payload.args ?? {}).slice(0, 50)}
                   </span>
                 )}
                 {isDecision(ev) && (() => {
@@ -1145,7 +1151,7 @@ export default function LiveView({
         </div>
 
         {/* ── Detail panel ──────────────────────────────────────────── */}
-        <div className="w-[420px] shrink-0 flex flex-col min-h-0">
+        <div className="w-full lg:w-[420px] lg:shrink-0 flex flex-col min-h-0">
           <div
             className="px-4 py-2 text-[10px] font-mono uppercase tracking-widest shrink-0"
             style={{ color: "#8A8A93", borderBottom: "1px solid #262630" }}
@@ -1470,7 +1476,7 @@ function ExecutiveRuntimePanel({
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
-      <div className="max-w-3xl mx-auto px-8 py-10 space-y-6">
+      <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10 space-y-6">
         <div
           className="flex items-center gap-4 p-5 rounded-xl"
           style={{
@@ -1551,7 +1557,7 @@ function ExecutiveRuntimePanel({
             <div className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
               Business Impact
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <div className="text-2xl font-mono font-bold" style={{ color: "#FF5A5A" }}>
                   ${runBlast.moneyInterdicted.toLocaleString()}

@@ -120,7 +120,7 @@ function rowToPolicy(row: typeof policiesTable.$inferSelect): Policy {
     source: row.source as Policy['source'],
     enabled: row.enabled !== false,
     reasoning: row.reasoning ?? undefined,
-    when: JSON.parse(row.whenJson),
+    when: (() => { try { return JSON.parse(row.whenJson); } catch { return []; } })(),
     createdAt: row.createdAt,
     sourceAttackId: row.sourceAttackId ?? undefined,
   };

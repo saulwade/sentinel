@@ -20,16 +20,19 @@ const FLEET_AGENTS = [
 ] as const;
 
 fleetRouter.post('/', async (c) => {
-  const runs = await Promise.all(
+  const results = await Promise.allSettled(
     FLEET_AGENTS.map(({ scenario, startDelay }) =>
       startRun('scenario', scenario, { startDelay }),
     ),
   );
 
-  return c.json({
-    agents: runs.map((run, i) => {
-      const agent = FLEET_AGENTS[i]!;
-      return { runId: run.id, scenario: agent.scenario, label: agent.label };
-    }),
-  }, 201);
+  const agents = results.map((result, i) => {
+    const agent = FLEET_AGENTS[i]!;
+    if (result.status === 'rejected') return null;
+    return { runId: result.value.id, scenario: agent.scenario, label: agent.label };
+  }).filter(Boolean);
+
+  if (agents.length === 0) return c.json({ error: 'all fleet runs failed to start' }, 500);
+
+  return c.json({ agents }, 201);
 });
