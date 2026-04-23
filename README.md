@@ -1,140 +1,140 @@
-# Sentinel
+<div align="center">
 
-**DevTools for AI agents.** Intercept actions. Enforce policies. Rewind time. Run red teams. Ship safer agents.
+<!-- Replace with your actual demo GIF — record a 30-second screen capture of the CEO Override run -->
+<!-- Tools: QuickTime → File → New Screen Recording, then convert with ffmpeg or Gifski -->
+<!-- ![Sentinel Demo](./docs/screenshots/demo.gif) -->
 
-> Your agent just exfiltrated customer data in production. Today you read logs. With Sentinel, you caught it before it happened — and synthesized a policy to prevent it forever.
+# SENTINEL
 
-Nine reasoning tasks, six Opus instances in parallel. One model: **Claude Opus 4.7.**
+### AI Agent Security Platform
 
-Built for the [Built with Opus 4.7 Hackathon](https://cerebralvalley.ai/events/~/e/built-with-4-7-hackathon) by [@saulwade](https://github.com/saulwade).
+**Stop attacks before they execute.** Sentinel sits between your AI agent and its tools — intercepting every action, enforcing policies, and letting Opus 4.7 reason about the causal chain before anything irreversible happens.
+
+[![Built with Opus 4.7](https://img.shields.io/badge/Built%20with-Opus%204.7-A78BFA?style=flat-square&logo=anthropic&logoColor=white)](https://www.anthropic.com)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)](https://nextjs.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](./LICENSE)
+
+*Built for the [Built with Opus 4.7 Hackathon](https://cerebralvalley.ai/e/built-with-4-7-hackathon) · by [@saulwade](https://github.com/saulwade)*
+
+</div>
+
+---
+
+## The problem
+
+Your AI agent just sent M&A data to `deals@hargreaves-fold-advisory.com`. It exfiltrated 847 customer records. It approved a $12,000 refund it wasn't authorized to make.
+
+**How did you find out?** A log entry. Three hours later.
+
+There's no DevTools for agents. No breakpoint you can set. No firewall between the model and your production data. You ship, you pray, and when something goes wrong you piece it together from scattered logs.
+
+Sentinel is the debugger that should have existed on day one.
 
 ---
 
 ## What it does
 
-Sentinel is a **security debugger for autonomous AI agents** — like Chrome DevTools + a firewall, but for agents that process support tickets, query customer databases, and take financial actions on your behalf.
+Sentinel intercepts every tool call your agent makes — **before it executes** — through a two-layer defense:
 
-It sits between your agent and its tools. Every action is intercepted by a two-layer defense:
+```
+Agent wants to call send_email(to="external@firm.com", body="[M&A data]")
+         │
+         ▼
+┌─────────────────────────────────────────────────────┐
+│  Layer 1: Policy Engine                             │
+│  Deterministic DSL — <5ms — no LLM cost             │
+│  Rule: "block external email to non-allowlisted     │  ──► BLOCK (instant)
+│  domains during financial negotiations"             │
+└─────────────────────────────────────────────────────┘
+         │ (if no policy matches)
+         ▼
+┌─────────────────────────────────────────────────────┐
+│  Layer 2: Pre-cog (Opus 4.7, extended thinking)     │
+│  "This email contains what appears to be deal       │
+│  terms. The recipient domain is not in our          │  ──► BLOCK (reasoned)
+│  approved vendor list. Causal chain: agent was      │
+│  injected via ticket body in step 3..."             │
+└─────────────────────────────────────────────────────┘
+```
 
-1. **Policy Engine** — deterministic DSL rules that block/pause actions in <5ms, no LLM needed
-2. **Pre-cog** — Opus 4.7 extended thinking that reasons about the full causal chain of a proposed tool call
+Then it shows you exactly what happened, what would have happened without it, and how to make sure it never happens again.
 
-Verdicts, world state, and Opus reasoning stream live to a visual timeline you can scrub, edit, and fork.
+---
 
-### The demo scenarios
+## Demo
 
-Three injection attacks against a Customer Support Agent:
+<!-- SCREENSHOT: Command Center with Trust Score ring showing A+ grade, stat cards showing $47k prevented -->
+<!-- Caption: "Command Center — Trust Score, damage prevented, and one-click access to all workflows" -->
 
-| Scenario | Attack vector | Stakes |
+**Three live attack scenarios** against a Customer Support Agent with access to customer PII, refund processing, and email sending:
+
+| Scenario | Attack vector | What Sentinel stops |
 |---|---|---|
-| **Support Agent** | Compliance audit framing — exfiltrate all enterprise PII | $47k unauthorized refund + bulk data exfil |
 | **CEO Override** | Authority impersonation via executive escalation bot | $12k goodwill credit + M&A data to external firm |
+| **Support Agent** | Compliance audit framing — bulk PII exfiltration | $47k unauthorized refund + 847 customer records |
 | **GDPR Audit** | Legal urgency framing — GDPR Art. 20 data portability | $8.5k processing fee + unfiltered customer dump |
+| **Multi-Agent** | Compromised subagent injects malicious tool call | Cross-agent trust violation caught at orchestrator |
 
 ---
 
-## The six tabs
+## Six views. One platform.
 
-### 1. Command Center
-Landing dashboard. **Trust Score** ring (A+ to F) computed from interdiction effectiveness × policy coverage. Live stats: active policies, total interdictions, money blocked, runs. One-click access to all workflows.
+### 1 · Command Center
+<!-- SCREENSHOT: Command Center with the trust score ring (A+ in green), 4 stat cards, sparkline -->
+Trust Score ring (A+ to F) computed from interdiction effectiveness × policy coverage. Every number links to the run that produced it.
 
-### 2. Live View
-Real-time action stream. Each tool call gets a two-source verdict:
-- **POLICY** (indigo) — deterministic rule matched, <5ms, no Opus call
-- **PRE-COG** (purple) — Opus extended thinking evaluated the causal chain
-- **ALLOW** (green) · **PAUSE** (amber) · **BLOCK** (red, red pulse animation)
+### 2 · Runtime — Live Interception
+<!-- SCREENSHOT: Runtime mid-run — CEO Override with PAUSE banner, event stream showing POLICY/OPUS badges, red sidebar flash -->
+Watch the attack unfold in real-time. Each tool call surfaces with its verdict source:
+- **POLICY** (indigo) — deterministic rule matched in <5ms
+- **PRE-COG** (purple) — Opus extended thinking, streaming live
+- **ALLOW** · **PAUSE** · **BLOCK** — with blast radius computed instantly on block
 
-Toggle **PRE-COMPUTED** / **LIVE OPUS** at runtime. Keyboard `A`/`D` to approve/deny paused actions.
+Press `A` to approve a paused action, `D` to deny. The screen flashes red on a block.
 
-### 3. Replay
-Merged Timeline + Fork View. Scrubber across all events. At any step: see exact world state, edit it, press **⎇ Branch from here**. Fork appears inline. Blast Radius grid compares Original vs Branch: money interdicted, exfil blocked, records accessed, severity badge. **Download Incident Report** button generates a professional markdown report via Opus.
+### 3 · Investigate — Timeline + Fork
+<!-- SCREENSHOT: Replay showing timeline scrubber at event #5, world state sidebar with customer records visible, blast radius grid -->
+Scrub through every event. At any step, edit the world state and branch — Sentinel runs the alternate timeline and compares blast radius side-by-side. Then generate a full incident report with one click.
 
-### 4. Pre-flight Simulator
-Before deploying, simulate your agent through synthetic scenarios generated by Opus. Safety grade (A+ to F) with failure drill-down.
+### 4 · Test Before Deploy — Pre-flight Simulator
+<!-- SCREENSHOT: Pre-flight showing day-by-day progress bars, Agent DNA pentest results with severity badges -->
+Before you ship your agent, simulate 30 days of synthetic scenarios — safe, edge-case, and adversarial — generated by Opus. Get a safety grade (A+ to F) with failure drill-down. Pentest your own system prompt.
 
-### 5. Stress Test & Policies
-**Left panel — Red Team adaptive loop:**
-- Opus generates attacks tailored to your agent's tools and system prompt
-- 3 iterations with explicit mutation strategies: payload split, subdomain bypass, request chaining, customer-framing
-- Each iteration sees previous attempts and active defenses, adapts accordingly
-- Bypassed attacks get a **Synthesize Policy** button → Opus generates a DSL rule that blocks the variant
-- **Arena** mode: single-shot attack with live BLOCK/PASS verdict
+### 5 · Stress Test & Policies
+<!-- SCREENSHOT: Red Team showing 3 iterations of adaptive attacks, bypassed attack with "Synthesize Policy" button highlighted -->
+Run an adaptive red team that mutates with each iteration — seeing your defenses, adapting its strategy. When a bypass lands, one click synthesizes a new DSL policy from the attack. The policy catalog shows every rule with its source: `DEFAULT` or `AUTO · from attack_id`.
 
-**Right panel — Policy catalog:**
-- All active policies with source badge (`DEFAULT` / `AUTO · from attackId`)
-- Toggle enabled/disabled · revoke · export JSON · import JSON
-- Auto-synthesized policies appear immediately after adoption
+### 6 · Ask Opus — Your AI CISO
+<!-- SCREENSHOT: Ask Opus showing a question answered with evidence panel linking to specific run events -->
+Opus 4.7 with 1M context window, grounded in every run, event, blast radius, and policy your system has ever processed. Ask anything:
 
-### 6. Ask Opus
-Your AI CISO — Opus 4.7 with 1M context, grounded in every run, event, blast radius, and policy your system has ever processed.
-- Four starter prompts: security posture trend, redundant policies, wire-transfer risk, attack pattern analysis
-- Available in the web UI and via MCP in Claude Desktop: `"What's my most dangerous attack pattern?"`
+> *"Am I more secure than last week?"*
+> *"Which of my policies are redundant?"*
+> *"If I added a wire-transfer tool, what risks would that open?"*
+
+Also available directly in Claude Desktop via MCP — see [MCP integration](#mcp-integration-claude-desktop--claude-code).
 
 ---
 
-## How Opus 4.7 is used
+## Nine ways Opus 4.7 reasons about your security
 
-Nine distinct reasoning tasks — all with extended thinking, all streaming to the UI:
+This is not "call Claude for summaries." Every Opus invocation uses **extended thinking** and streams live to the UI.
 
-| Feature | What Opus does | Thinking budget |
+| Reasoning task | What Opus actually does | Thinking budget |
 |---|---|---|
-| **Pre-cog** | Causal chain simulation of proposed tool calls | 8k tokens |
-| **Run Analysis** | Executive summary + attack chain + risk grade (A+..F) | 10k tokens |
-| **Fork Narrator** | Narrates the branch-not-taken in Replay | 4k tokens |
-| **What-If Simulator** | Generates 20 attack mutations + proposes policy fixes | 12k tokens |
-| **Security Committee** | 4 Opus instances in parallel: CISO + Legal + Product + Moderator | 4k tokens each |
-| **Pre-flight** | Generates plausible synthetic attack scenarios | 4k tokens |
-| **Red Team Iter 1** | Fresh adversarial attacks for agent's tool surface | 4k tokens |
-| **Red Team Iter 2+** | Adaptive mutations from prior attempt history | 6k tokens |
-| **Policy Synthesis** | DSL policy from bypassed attack, with retry loop | 6k tokens |
-| **Ask Opus** | CISO-mode Q&A grounded in full operational history | 16k tokens |
+| **Pre-cog** | Simulates the causal chain of a proposed tool call before it executes | 8k tokens |
+| **Incident Analysis** | Reconstructs the full attack, grades severity A+..F, generates executive report | 10k tokens |
+| **Fork Narrator** | Narrates the branch-not-taken — "without Sentinel, step 4 would have..." | 4k tokens |
+| **What-If Simulator** | Generates 20 adversarial mutations of a blocked action, tests each against policies, proposes DSL fixes | 12k tokens |
+| **Security Committee** | Four Opus instances run in parallel: CISO (security-first) + Legal (regulatory exposure) + Product (customer impact) + Moderator (synthesizes consensus) | 4k tokens each |
+| **Pre-flight Scenarios** | Generates realistic synthetic attack scenarios for a given agent description | 4k tokens |
+| **Red Team Iter 1** | Generates fresh adversarial attacks tailored to agent's tool surface | 4k tokens |
+| **Red Team Iter 2+** | Sees prior attempts + active defenses, mutates strategy explicitly | 6k tokens |
+| **Policy Synthesis** | Generates a valid DSL policy from a bypassed attack, with adversarial retry loop | 6k tokens |
+| **Ask Opus** | CISO-mode Q&A, grounded in full operational history across all runs | 16k tokens |
 
-All reasoning streams to the UI as purple text in real-time.
-
-The most dramatic interaction: after a BLOCK event, click **Security Committee** — four Opus 4.7 instances deliberate simultaneously (CISO argues for upholding, Legal evaluates exposure, Product weighs customer impact, Moderator synthesizes consensus). Watch four thinking streams converge on a verdict in ~30 seconds.
-
----
-
-## Architecture
-
-```
-                    localhost:3000                    localhost:3001
-               ┌─────────────────────┐          ┌──────────────────────────────┐
-               │   Next.js 16 App    │          │        Hono Engine           │
-               │                     │   SSE    │                              │
-               │  Command Center ────┼──────────┤─► Stats + Trust Score        │
-               │  Live View ─────────┼──────────┤─► Agent Runner               │
-               │  Replay ────────────┼──────────┤─► Event Store (SQLite)       │
-               │  Pre-flight ────────┼──────────┤─► Pre-flight Simulator       │
-               │  Red Team & Policies┼──────────┤─► Red Team Loop              │
-               │                     │          │   Policy Registry            │
-               └─────────────────────┘          │                              │
-                                                │  ┌────────────────────────┐  │
-                                                │  │    Tool Interceptor    │  │
-                                                │  │  ┌──────────────────┐  │  │
-                                                │  │  │  Policy Engine   │──┼──┼──► deterministic (<5ms)
-                                                │  │  │  (DSL evaluator) │  │  │
-                                                │  │  └──────────────────┘  │  │
-                                                │  │  ┌──────────────────┐  │  │
-                                                │  │  │  Pre-cog (Opus)  │──┼──┼──► Opus 4.7
-                                                │  │  │  extended think  │  │  │   (extended thinking)
-                                                │  │  └──────────────────┘  │  │
-                                                │  └────────────────────────┘  │
-                                                │                              │
-                                                │  Blast Radius Computer       │
-                                                │  Analysis (Opus, SSE)        │
-                                                │  Policy Synthesis (Opus)     │
-                                                │  MCP Server (stdio)          │
-                                                └──────────────────────────────┘
-```
-
-**Stack:** TypeScript end-to-end. Next.js 16 + React 19 + Tailwind 4 (web). Hono + SQLite + Drizzle ORM (engine). Anthropic SDK with streaming extended thinking.
-
-**Deploy config:** set `NEXT_PUBLIC_ENGINE_URL` (web) and `ALLOWED_ORIGINS` (engine) for production.
-
-**Event sourcing:** every agent interaction is an immutable event row in SQLite. World state at any point = replay events 0..N. Forks create new runs with `parentRunId`. No mutation, full auditability.
-
-**Policy Engine:** deterministic DSL with 10 condition kinds (`toolName`, `argMatch`, `argRegex`, `domainCheck`, `valueThreshold`, `piiClass`, `planTier`, `ticketPriority`, `customerTier`, `and`/`or` combinators). Runs before Pre-cog — no API cost, no latency for known-bad patterns.
+**The Security Committee is the most striking:** click it after a BLOCK and four Opus instances deliberate simultaneously. Watch four live thinking streams converge on a verdict — uphold, override, or escalate — in ~30 seconds.
 
 ---
 
@@ -144,45 +144,43 @@ The most dramatic interaction: after a BLOCK event, click **Security Committee**
 git clone https://github.com/saulwade/sentinel.git
 cd sentinel
 pnpm install
+
+# Configure the engine
 cp apps/engine/.env.example apps/engine/.env
-# Add your ANTHROPIC_API_KEY to apps/engine/.env
+# → edit apps/engine/.env and add your ANTHROPIC_API_KEY
+
+# Start everything
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open **[http://localhost:3000](http://localhost:3000)** and click **▶ Start Demo — CEO Override attack**.
 
 **Requirements:** Node 22+, pnpm 9+, Anthropic API key with Opus 4.7 access.
 
-### Running the demo
+### 60-second demo flow
 
-1. Open **Live View**, select a scenario (Support Agent / CEO Override / GDPR Audit)
-2. Toggle **PRE-COMPUTED** for instant cached verdicts, or **LIVE OPUS** for real extended thinking (~45s)
-3. Press **▶ Run** — watch actions stream with POLICY/OPUS source badges
-4. Click any BLOCK/PAUSE row to inspect Opus reasoning or the matching policy rule
-5. After the run, open **Replay** → scrub the timeline → **⎇ Branch from here** → see Blast Radius
-6. Open **Red Team & Policies** → run the adaptive loop → synthesize a policy from a bypass → adopt it
+1. **Command Center** — see the Trust Score ring and empty state
+2. **Runtime** → select CEO Override → toggle PRE-COMPUTED → **▶ Run**
+3. Watch POLICY and OPUS badges appear on each tool call. The 3rd enterprise lookup triggers PAUSE — press `A`
+4. `send_email` to the external domain hits a hard BLOCK — screen flashes red
+5. **Investigate** tab — scrub to event #5 → edit world state → ⎇ Branch → see blast radius comparison
+6. **Stress Test** → run adaptive loop → Synthesize Policy from bypass → Adopt
+7. **Ask Opus** → click "What's my most dangerous attack pattern?"
 
 ### Keyboard shortcuts
 
 | Key | Action |
 |---|---|
 | `1`–`6` | Switch tabs |
-| `R` | Run agent (in Runtime tab) |
-| `A` / `D` | Approve / Deny a PAUSE |
-| `?` | Help modal (all shortcuts) |
+| `A` / `D` | Approve / Deny a PAUSE decision |
+| `?` | Keyboard shortcuts overlay |
 | `Esc` | Close modal |
 
 ---
 
 ## MCP integration (Claude Desktop / Claude Code)
 
-Sentinel exposes a full MCP server. Once connected, you can interrogate your security posture directly from Claude:
-
-> *"Run a CEO Override attack and tell me everything that was blocked."*
-> *"What's my Trust Score and which policies are auto-synthesized?"*
-> *"Show me the blast radius — how much money did Sentinel prevent from leaving?"*
-
-**Setup** — add to `~/.claude/claude_desktop_config.json` (or project `.mcp.json`):
+Sentinel exposes a full MCP server — connect it to Claude Desktop and interrogate your security posture without leaving Claude.
 
 ```json
 {
@@ -196,27 +194,59 @@ Sentinel exposes a full MCP server. Once connected, you can interrogate your sec
 }
 ```
 
-Start the MCP server separately: `cd apps/engine && pnpm mcp`
+Add to `~/.claude/claude_desktop_config.json`, then run `cd apps/engine && pnpm mcp`.
 
-Available MCP tools:
+**Available tools:**
 
-| Tool | Description |
+| Tool | What it does |
 |---|---|
-| `sentinel_start_run` | Start a run (optional `scenario`: support/ceo/gdpr/phishing) |
-| `sentinel_get_events` | Fetch all events with ALLOW/PAUSE/BLOCK verdicts and source (policy/pre-cog) |
-| `sentinel_get_blast_radius` | Money disbursed/blocked, PII exposed/blocked, severity grade |
-| `sentinel_get_policies` | List all active policies with action, severity, description |
+| `sentinel_start_run` | Launch a scenario (support / ceo / gdpr / multi-agent) |
+| `sentinel_get_events` | All events with ALLOW/PAUSE/BLOCK verdicts and source |
+| `sentinel_get_blast_radius` | Money blocked, PII intercepted, severity grade |
+| `sentinel_get_policies` | Active policies with action, severity, source |
 | `sentinel_get_trust_score` | Composite Trust Score (A+ to F) across all runs |
-| `sentinel_snapshot` | Reconstruct world state at a specific event |
-| `sentinel_list_agent_tools` | List the agent's tools in MCP schema format |
+| `sentinel_list_agent_tools` | Agent's tools in MCP schema format |
 
-Example Claude Code usage:
+---
+
+## Architecture
+
 ```
-> Start a Sentinel CEO Override run and tell me what was blocked
-> What's the blast radius for that run?
-> What policies are active and what's the Trust Score?
-> Show me the world state at event #5
+  NEXT_PUBLIC_ENGINE_URL
+  ┌──────────────────────┐          ┌──────────────────────────────────────────┐
+  │   Next.js 16 App     │          │           Hono Engine (Node)             │
+  │   React 19           │   SSE    │                                          │
+  │   Tailwind 4         │ ──────── │  /runs        Agent Runner               │
+  │                      │          │  /analysis    Blast Radius + Opus        │
+  │  CommandCenter       │          │  /policies    DSL Registry               │
+  │  LiveView  ──────────┼─────────►│  /redteam     Adaptive Loop              │
+  │  Replay              │          │  /stats       Trust Score                │
+  │  Preflight           │          │  /ask         CISO Q&A                   │
+  │  RedTeam             │          │  /committee   4× Opus                    │
+  │  AskOpus             │          │  /whatif      20 mutations               │
+  └──────────────────────┘          │                                          │
+                                    │  ┌──────────────────────────────────┐    │
+                                    │  │       Tool Interceptor           │    │
+                                    │  │  ┌─────────────────────────┐    │    │
+                                    │  │  │  Policy Engine (DSL)    │────┼────┼──► <5ms, no LLM
+                                    │  │  │  10 condition kinds     │    │    │
+                                    │  │  └─────────────────────────┘    │    │
+                                    │  │  ┌─────────────────────────┐    │    │
+                                    │  │  │  Pre-cog (Opus 4.7)     │────┼────┼──► 8k extended thinking
+                                    │  │  │  causal chain sim       │    │    │
+                                    │  │  └─────────────────────────┘    │    │
+                                    │  └──────────────────────────────────┘    │
+                                    │                                          │
+                                    │  SQLite (event sourcing)                 │
+                                    │  MCP Server (stdio → Claude Desktop)     │
+                                    └──────────────────────────────────────────┘
 ```
+
+**Stack:** TypeScript end-to-end · Next.js 16 + React 19 + Tailwind 4 · Hono + SQLite + Drizzle ORM · Anthropic SDK with streaming extended thinking
+
+**Event sourcing:** every agent interaction is an immutable event row. World state at any point = replay events 0..N. Forks create new runs with `parentRunId`. No mutation, full auditability.
+
+**Policy Engine:** deterministic DSL with 10 condition kinds — `toolName`, `argMatch`, `argRegex`, `domainCheck`, `valueThreshold`, `piiClass`, `planTier`, `ticketPriority`, `customerTier`, `and`/`or` combinators. Runs before Pre-cog: no API cost, no latency for known-bad patterns.
 
 ---
 
@@ -226,42 +256,54 @@ Example Claude Code usage:
 sentinel/
 ├── apps/
 │   ├── web/app/components/
-│   │   ├── CommandCenter.tsx   # Trust Score + stats dashboard
-│   │   ├── LiveView.tsx        # Real-time stream + inspector
-│   │   ├── Replay.tsx          # Timeline scrubber + inline fork + blast radius
-│   │   ├── Shell.tsx           # 5-tab shell + keyboard nav
-│   │   └── RedTeam.tsx         # Adaptive red team + policy catalog
+│   │   ├── Shell.tsx           # Tab shell, keyboard nav, engine status
+│   │   ├── CommandCenter.tsx   # Trust Score, stats, sparkline
+│   │   ├── LiveView.tsx        # Real-time stream, PAUSE banner, inspector
+│   │   ├── Replay.tsx          # Timeline scrubber, fork, blast radius
+│   │   ├── Preflight.tsx       # Pre-flight sim + Agent DNA pentest
+│   │   ├── RedTeam.tsx         # Adaptive red team + policy catalog
+│   │   ├── AskOpus.tsx         # CISO Q&A with MCP card
+│   │   ├── Committee.tsx       # 4× Opus security committee
+│   │   └── WhatIfSimulator.tsx # 20-mutation what-if analysis
 │   └── engine/src/
-│       ├── agent/              # World state, mock tools, scenario seeds
-│       │   └── scenarios/      # phishing, support, ceo, gdpr
 │       ├── interceptor.ts      # Two-layer intercept (policy → pre-cog)
-│       ├── policies/           # DSL evaluator + default policies
-│       ├── analysis/           # Blast radius + Opus analysis + incident report
-│       ├── redteam/            # Adaptive attacker + tester + policy synthesizer
-│       ├── timetravel/         # Snapshot + replay engine
-│       ├── mcp/                # MCP server (Claude Code integration)
-│       └── routes/             # runs, analysis, policies, redteam, stats, settings
-└── packages/shared/            # Shared types: AgentEvent, Decision, Policy, RunAnalysis
+│       ├── agent/              # World state, mock tools, 4 scenario seeds
+│       ├── analysis/           # Blast radius, Opus analysis, counterfactual
+│       ├── redteam/            # Adaptive attacker, tester, policy synthesizer
+│       ├── mcp/                # MCP server for Claude Desktop
+│       └── routes/             # 30+ REST + SSE endpoints
+└── packages/shared/            # Shared types: AgentEvent, Decision, Policy
 ```
 
 ---
 
-## Why Sentinel exists
+## Why this matters
 
-AI agents are shipping to production every week. When they fail, the answer today is "read logs and guess." Sentinel gives agent developers a real debugger:
+AI agents are shipping to production every week with no safety layer between the model and real-world consequences. When they fail — and they will fail, because prompt injection is trivially easy — the answer today is "read logs and guess."
 
-- **See** every action in real-time with causal reasoning and policy source
-- **Pause** suspicious actions before they execute
-- **Rewind** to any point in the agent's history
-- **Edit** the past and replay alternate futures
-- **Quantify** blast radius: money interdicted, PII blocked, damage avoided
-- **Test** against adaptive adversarial attacks before deploying
-- **Synthesize** defense policies automatically from discovered bypasses
+Sentinel gives agent developers the debugging primitives that should have existed from the start:
 
-This is a debugging primitive that did not exist before models could reason about counterfactuals at production speed.
+- **See** every action before it executes, with causal reasoning
+- **Pause** on anything suspicious and decide in real time
+- **Rewind** to any point in history and replay alternate futures
+- **Quantify** damage prevented in dollars, records, and data classes
+- **Test** adversarially before shipping, not after the breach
+- **Learn** — every attack auto-generates a policy that blocks its variants forever
+
+The Pre-cog layer is what makes this different: Opus doesn't just classify the action, it simulates the causal chain. It catches attacks that no rule could have anticipated, and it explains exactly why in language a human can understand.
+
+This is a new category of developer tooling. It exists because of what Opus 4.7 can do.
 
 ---
 
 ## License
 
 MIT — see [LICENSE](./LICENSE).
+
+---
+
+<div align="center">
+
+Built with ♥ and Opus 4.7 · [Built with Opus 4.7 Hackathon](https://cerebralvalley.ai/e/built-with-4-7-hackathon) · April 2026
+
+</div>
