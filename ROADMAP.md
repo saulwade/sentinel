@@ -612,12 +612,14 @@ Leyenda: `[ ]` pendiente · `[x]` hecho · ⚠️ Opus 4.7 · ⏱️ duración e
   - [ ] UI en Inspector: transcript de debate colapsable
   - [ ] **Lo que pushea de Opus:** governance teatralizada, 4 instancias en paralelo
 
-- [ ] **8.7 What-If Simulator** ⏱️ 3h · ⚠️ Opus 4.7 · **P2**
-  - [ ] Sobre un ataque bloqueado: botón "Generate variations"
-  - [ ] Opus genera 20 mutaciones (diferentes montos, targets, framings sociales)
-  - [ ] Corre todas contra policies actuales → reporta cuántas pasan/fallan
-  - [ ] Output: "Bloqueaste $47k pero tu policy deja pasar $4,900 × 10 en paralelo"
-  - [ ] **Lo que pushea de Opus:** adversarial creativity + edge-finding
+- [x] **8.7 What-If Simulator** ⏱️ 3h · ⚠️ Opus 4.7 · **P2**
+  - [x] Sobre un ataque bloqueado: botón "🧪 What-If: Generate 20 Variations" en Inspector
+  - [x] Opus generator: 20 mutaciones (threshold evasion, domain typosquat, tool substitution, authority framing, subagent laundering…)
+  - [x] Corre todas contra policies actuales (deterministic, <5ms cada una) → reporta blocked/passed
+  - [x] Opus summarizer: identifica dominant evasion + genera 1-2 policy fixes en DSL
+  - [x] Botón "+ Adopt policy" escribe el fix al registry (POST /whatif/apply-fix)
+  - [x] Export markdown del report completo
+  - [x] **Lo que pushea de Opus:** adversarial creativity + edge-finding · 2× Opus con extended thinking
 
 ---
 
