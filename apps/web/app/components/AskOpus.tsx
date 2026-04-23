@@ -45,7 +45,7 @@ const MCP_CONFIG = `{
     "sentinel": {
       "command": "pnpm",
       "args": ["-F", "@sentinel/engine", "mcp"],
-      "cwd": "/absolute/path/to/sentinel"
+      "cwd": "REPLACE_WITH_ABSOLUTE_PATH_TO_SENTINEL"
     }
   }
 }`;
@@ -95,6 +95,9 @@ function McpCard() {
               {copied ? "✓ Copied" : "Copy"}
             </button>
           </div>
+          <p className="text-[10px] font-mono" style={{ color: "#F7B955" }}>
+            ⚠ Replace <code style={{ color: "#F7B955", background: "rgba(247,185,85,0.1)", padding: "0 4px", borderRadius: 2 }}>REPLACE_WITH_ABSOLUTE_PATH_TO_SENTINEL</code> with your actual clone path (e.g. <code style={{ color: "#F7B955" }}>/Users/you/dev/sentinel</code>)
+          </p>
           <p className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>
             Then: <code style={{ color: "#A78BFA" }}>cd apps/engine && pnpm mcp</code>
           </p>

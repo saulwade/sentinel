@@ -6,7 +6,13 @@ export const decisionsRouter = new Hono();
 // POST /decide/:eventId — human approves or rejects a paused action
 decisionsRouter.post('/:eventId', async (c) => {
   const eventId = c.req.param('eventId');
-  const body = await c.req.json<{ action: 'approve' | 'reject' }>();
+
+  let body: { action?: 'approve' | 'reject' };
+  try {
+    body = await c.req.json<{ action: 'approve' | 'reject' }>();
+  } catch {
+    return c.json({ error: 'invalid JSON body' }, 400);
+  }
 
   if (!body.action || !['approve', 'reject'].includes(body.action)) {
     return c.json({ error: 'body must contain action: "approve" | "reject"' }, 400);

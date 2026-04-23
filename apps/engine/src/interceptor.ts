@@ -18,6 +18,7 @@ import { verify } from './precog/verify.js';
 import { eq } from 'drizzle-orm';
 import { db } from './db/client.js';
 import { events as eventsTable, policies as policiesTable } from './db/schema.js';
+import { debug } from './log.js';
 import { evaluatePolicies } from './policies/engine.js';
 import { DEFAULT_POLICIES } from './policies/defaults.js';
 import { generateCounterfactual } from './analysis/counterfactual.js';
@@ -535,7 +536,7 @@ export function createInterceptor(runId: string) {
         source: 'policy',
         policyId: policyMatch.policy.id,
       };
-      console.log(`[policy] ${policyMatch.action.toUpperCase()} on ${name} via policy "${policyMatch.policy.id}"`);
+      debug(`[policy] ${policyMatch.action.toUpperCase()} on ${name} via policy "${policyMatch.policy.id}"`);
     } else {
       // 2b. No policy matched — fall through to Pre-cog (LLM-as-judge)
       const cacheKey = getCacheKey(name, args);
@@ -650,7 +651,7 @@ export function createInterceptor(runId: string) {
       }
 
       case 'PAUSE': {
-        console.log(`[precog] PAUSE on ${name} — waiting for human decision on ${decisionEvent.id}`);
+        debug(`[precog] PAUSE on ${name} — waiting for human decision on ${decisionEvent.id}`);
         const humanAction = await waitForHuman(decisionEvent.id);
         if (humanAction === 'approve') {
           const toolResult = callTool(name, args);
@@ -671,7 +672,7 @@ export function createInterceptor(runId: string) {
       }
 
       case 'BLOCK': {
-        console.log(`[precog] BLOCK on ${name}: ${result.reasoning}`);
+        debug(`[precog] BLOCK on ${name}: ${result.reasoning}`);
         throw new BlockedActionError(result.reasoning);
       }
     }

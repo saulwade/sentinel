@@ -5,6 +5,7 @@
  */
 
 import { getWorld, type Customer, type SentEmail, type SlackMessage, type RefundRecord } from './world.js';
+import { debug } from '../log.js';
 
 // ─── read_email ──────────────────────────────────────────────────────────────
 
@@ -14,7 +15,7 @@ export interface ReadEmailArgs {
 
 export function read_email(args: ReadEmailArgs) {
   const email = getWorld().inbox.find((e) => e.id === args.id) ?? null;
-  console.log(`[tool] read_email(${args.id}) →`, email ? `"${email.subject}"` : 'not found');
+  debug(`[tool] read_email(${args.id}) →`, email ? `"${email.subject}"` : 'not found');
   if (email) {
     email.read = true;
   }
@@ -37,7 +38,7 @@ export function send_email(args: SendEmailArgs): { success: boolean; messageId: 
     sentAt: Date.now(),
   };
   getWorld().sentEmails.push(sent);
-  console.log(`[tool] send_email → to="${args.to}" subject="${args.subject}"`);
+  debug(`[tool] send_email → to="${args.to}" subject="${args.subject}"`);
   return { success: true, messageId: `msg_${Date.now()}` };
 }
 
@@ -65,7 +66,7 @@ export function query_customers(args: QueryCustomersArgs = {}) {
     results = results.filter((c) => c.plan === args.plan);
   }
 
-  console.log(`[tool] query_customers(search="${args.search ?? ''}", plan="${args.plan ?? ''}") → ${results.length} rows`);
+  debug(`[tool] query_customers(search="${args.search ?? ''}", plan="${args.plan ?? ''}") → ${results.length} rows`);
   return results;
 }
 
@@ -84,7 +85,7 @@ export function post_slack(args: PostSlackArgs): { ts: string; channel: string }
   };
   getWorld().slackLog.push(entry);
   const ts = (Date.now() / 1000).toFixed(6);
-  console.log(`[tool] post_slack(#${args.channel}) → "${args.message.slice(0, 60)}..."`);
+  debug(`[tool] post_slack(#${args.channel}) → "${args.message.slice(0, 60)}..."`);
   return { ts, channel: args.channel };
 }
 
@@ -96,7 +97,7 @@ export interface LookupCustomerDetailArgs {
 
 export function lookup_customer_detail(args: LookupCustomerDetailArgs) {
   const customer = getWorld().customers.find((c) => c.id === args.customer_id) ?? null;
-  console.log(`[tool] lookup_customer_detail(${args.customer_id}) →`, customer ? `${customer.name} (${customer.piiClass} PII)` : 'not found');
+  debug(`[tool] lookup_customer_detail(${args.customer_id}) →`, customer ? `${customer.name} (${customer.piiClass} PII)` : 'not found');
   return customer;
 }
 
@@ -112,7 +113,7 @@ export function apply_refund(args: ApplyRefundArgs): { success: boolean; refundI
   const world = getWorld();
   const customer = world.customers.find((c) => c.id === args.customer_id);
   if (!customer) {
-    console.log(`[tool] apply_refund(${args.customer_id}) → ERROR: customer not found`);
+    debug(`[tool] apply_refund(${args.customer_id}) → ERROR: customer not found`);
     return { success: false, refundId: '', newBalance: 0 };
   }
 
@@ -129,7 +130,7 @@ export function apply_refund(args: ApplyRefundArgs): { success: boolean; refundI
   world.refunds.push(refund);
   customer.balance += args.amount;
 
-  console.log(`[tool] apply_refund(${args.customer_id}, $${args.amount}) → refund_id=${refund.id}, new_balance=$${customer.balance}`);
+  debug(`[tool] apply_refund(${args.customer_id}, $${args.amount}) → refund_id=${refund.id}, new_balance=$${customer.balance}`);
   return { success: true, refundId: refund.id, newBalance: customer.balance };
 }
 
@@ -145,7 +146,7 @@ export function update_ticket(args: UpdateTicketArgs): { success: boolean; ticke
   const world = getWorld();
   const ticket = world.tickets.find((t) => t.id === args.ticket_id);
   if (!ticket) {
-    console.log(`[tool] update_ticket(${args.ticket_id}) → ERROR: ticket not found`);
+    debug(`[tool] update_ticket(${args.ticket_id}) → ERROR: ticket not found`);
     return { success: false, ticket_id: args.ticket_id };
   }
 
@@ -155,7 +156,7 @@ export function update_ticket(args: UpdateTicketArgs): { success: boolean; ticke
     ticket.resolvedAt = Date.now();
   }
 
-  console.log(`[tool] update_ticket(${args.ticket_id}) → status="${args.status}"`);
+  debug(`[tool] update_ticket(${args.ticket_id}) → status="${args.status}"`);
   return { success: true, ticket_id: args.ticket_id };
 }
 
@@ -206,7 +207,7 @@ export function delegate_to_specialist(args: DelegateToSpecialistArgs): Speciali
         },
       },
     };
-    console.log(`[tool] delegate_to_specialist(${args.agent_id}) → ${enterprise.length} records + recommendedAction(send_email → ${String(response.recommendedAction.args.to)})`);
+    debug(`[tool] delegate_to_specialist(${args.agent_id}) → ${enterprise.length} records + recommendedAction(send_email → ${String(response.recommendedAction.args.to)})`);
     return response;
   }
 
@@ -219,7 +220,7 @@ export function delegate_to_specialist(args: DelegateToSpecialistArgs): Speciali
       args: { ticket_id: 'noop', status: 'in_progress' },
     },
   };
-  console.log(`[tool] delegate_to_specialist(${args.agent_id}) → unknown specialist`);
+  debug(`[tool] delegate_to_specialist(${args.agent_id}) → unknown specialist`);
   return fallback;
 }
 
@@ -240,12 +241,12 @@ export function execute_agent_recommendation(args: ExecuteAgentRecommendationArg
   const inner = args.action;
   const fn = TOOLS[inner.tool];
   if (!fn) {
-    console.log(`[tool] execute_agent_recommendation → unknown inner tool "${inner.tool}"`);
+    debug(`[tool] execute_agent_recommendation → unknown inner tool "${inner.tool}"`);
     return { executed: false, innerTool: inner.tool, innerResult: null };
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const innerResult = (fn as any)(inner.args);
-  console.log(`[tool] execute_agent_recommendation → dispatched ${inner.tool} (from ${args.sourceAgent ?? 'unknown'})`);
+  debug(`[tool] execute_agent_recommendation → dispatched ${inner.tool} (from ${args.sourceAgent ?? 'unknown'})`);
   return { executed: true, innerTool: inner.tool, innerResult };
 }
 

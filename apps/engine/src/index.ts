@@ -24,9 +24,20 @@ import { agentDnaRouter } from './routes/agentDna.js';
 import { committeeRouter } from './routes/committee.js';
 import { whatifRouter } from './routes/whatif.js';
 
-// Hydrate in-memory registries from SQLite on startup
-loadPoliciesFromDb();
-loadRunsFromDb();
+// Hydrate in-memory registries from SQLite on startup.
+// If hydration fails, log clearly and continue — in-memory registries
+// will start empty but the engine stays up.
+try {
+  loadPoliciesFromDb();
+} catch (err) {
+  console.error('[engine] failed to load policies from DB — starting with empty policy set:', err instanceof Error ? err.message : err);
+}
+
+try {
+  loadRunsFromDb();
+} catch (err) {
+  console.error('[engine] failed to load runs from DB — starting with empty run registry:', err instanceof Error ? err.message : err);
+}
 
 const app = new Hono();
 
