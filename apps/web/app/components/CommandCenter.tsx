@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { exportSecurityReport } from "./securityReportPdf";
 
 const ENGINE = "http://localhost:3001";
 
@@ -36,6 +37,30 @@ interface Stats {
   aggregate: { totalToolCalls: number; totalInterdictions: number; totalMoneyInterdicted: number; interdictionRate: number };
 }
 
+interface AttackSurface {
+  tools: Record<string, { attacks: number; total: number }>;
+  totalRuns: number;
+}
+
+interface PolicyTrend {
+  improving: boolean;
+  runsWithData: number;
+}
+
+interface McpTool {
+  name: string;
+  category: string;
+  description: string;
+}
+
+interface McpStatus {
+  status: "active" | "standby";
+  version: string;
+  transport: string;
+  tools: McpTool[];
+  stats: { totalRuns: number; lastRunAt: number | null };
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function severityColor(s: string) {
@@ -55,6 +80,8 @@ function gradeColor(g: string) {
 function agentLabel(config: string) {
   if (config === "support-agent") return "Support Agent · Tier 1";
   if (config === "corp-assistant") return "Corp Assistant · Security";
+  if (config === "orchestrator-agent") return "Billing Orchestrator · Multi-Agent";
+  if (config.startsWith("custom:")) return `${config.slice(7)} · Custom`;
   return config;
 }
 
@@ -138,16 +165,42 @@ function RunRow({ run, onClick }: { run: RunSummary; onClick: () => void }) {
 interface CommandCenterProps {
   onNavigate: (tab: string) => void;
   onRequestRun?: () => void;
+  executive?: boolean;
 }
 
-export default function CommandCenter({ onNavigate, onRequestRun }: CommandCenterProps) {
+export default function CommandCenter({ onNavigate, onRequestRun, executive = false }: CommandCenterProps) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [attackSurface, setAttackSurface] = useState<AttackSurface | null>(null);
+  const [policyTrend, setPolicyTrend] = useState<PolicyTrend | null>(null);
+  const [mcpStatus, setMcpStatus] = useState<McpStatus | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportErr, setExportErr] = useState<string | null>(null);
+
+  async function handleExport() {
+    setExporting(true);
+    setExportErr(null);
+    try {
+      await exportSecurityReport();
+    } catch (e) {
+      setExportErr(e instanceof Error ? e.message : "export failed");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch(`${ENGINE}/stats`);
-      if (res.ok) setStats(await res.json());
+      const [statsRes, surfaceRes, trendRes, mcpRes] = await Promise.all([
+        fetch(`${ENGINE}/stats`),
+        fetch(`${ENGINE}/stats/attack-surface`),
+        fetch(`${ENGINE}/stats/policy-trend`),
+        fetch(`${ENGINE}/stats/mcp-status`),
+      ]);
+      if (statsRes.ok) setStats(await statsRes.json());
+      if (surfaceRes.ok) setAttackSurface(await surfaceRes.json());
+      if (trendRes.ok) setPolicyTrend(await trendRes.json());
+      if (mcpRes.ok) setMcpStatus(await mcpRes.json());
     } catch {}
     setLoading(false);
   }, []);
@@ -219,12 +272,12 @@ export default function CommandCenter({ onNavigate, onRequestRun }: CommandCente
             <div className="space-y-2">
               {[
                 {
-                  label: "Interdiction effectiveness",
+                  label: executive ? "Threat catch rate" : "Interdiction effectiveness",
                   value: trust ? Math.round(trust.breakdown.interdictionEffectiveness * 100) : 0,
                   color: "#2DD4A4",
                 },
                 {
-                  label: "Policy coverage",
+                  label: executive ? "Protection coverage" : "Policy coverage",
                   value: trust ? Math.round(trust.breakdown.policyCoverage * 100) : 0,
                   color: "#818CF8",
                 },
@@ -266,14 +319,23 @@ export default function CommandCenter({ onNavigate, onRequestRun }: CommandCente
               className="px-4 py-2 rounded text-xs font-mono font-medium transition-all active:scale-95 hover:brightness-110"
               style={{ background: "#1C1C24", color: "#7DD3FC", border: "1px solid #7DD3FC30" }}
             >
-              ⟳  Pre-flight
+              ⟳  Test Before Deploy
             </button>
             <button
               onClick={() => onNavigate("Red Team")}
               className="px-4 py-2 rounded text-xs font-mono font-medium transition-all active:scale-95 hover:brightness-110"
               style={{ background: "#1C1C24", color: "#FF5A5A", border: "1px solid #FF5A5A30" }}
             >
-              ⚔  Red Team
+              ⚔  Stress Test & Policies
+            </button>
+            <button
+              onClick={handleExport}
+              disabled={exporting || !stats}
+              title={exportErr ?? "Download a shareable PDF snapshot of this dashboard"}
+              className="px-4 py-2 rounded text-xs font-mono font-medium transition-all active:scale-95 hover:brightness-110 disabled:opacity-50"
+              style={{ background: "#1C1C24", color: "#F5F5F7", border: "1px solid #262630" }}
+            >
+              {exporting ? "Generating…" : exportErr ? "Retry Export" : "⤓  Export Report"}
             </button>
           </div>
         </div>
@@ -281,26 +343,26 @@ export default function CommandCenter({ onNavigate, onRequestRun }: CommandCente
         {/* ── Stat cards ──────────────────────────────────────────────── */}
         <div className="grid grid-cols-4 gap-3">
           <StatCard
-            label="Potential Loss Prevented"
+            label={executive ? "Fraud Prevented" : "Potential Loss Prevented"}
             value={stats ? `$${stats.aggregate.totalMoneyInterdicted.toLocaleString()}` : "—"}
-            sub={stats?.aggregate.totalMoneyInterdicted === 0 ? "Run a scenario to see results" : "unauthorized transfers blocked"}
+            sub={stats?.aggregate.totalMoneyInterdicted === 0 ? "Run a scenario to see results" : executive ? "unauthorized transfers stopped" : "unauthorized transfers blocked"}
             accent="#FF5A5A"
             hero
           />
           <StatCard
-            label="Interdictions"
+            label={executive ? "Threats Stopped" : "Interdictions"}
             value={String(stats?.aggregate.totalInterdictions ?? "—")}
-            sub={stats ? `${stats.aggregate.interdictionRate}% of all tool calls` : undefined}
+            sub={stats && !executive ? `${stats.aggregate.interdictionRate}% of all tool calls` : executive && stats ? "across all agent sessions" : undefined}
             accent="#F7B955"
           />
           <StatCard
-            label="Active policies"
+            label={executive ? "Safeguards In Place" : "Active policies"}
             value={String(stats?.policies.active ?? "—")}
-            sub={stats ? `${stats.policies.bySource.autoSynthesized} auto-synthesized` : undefined}
+            sub={stats && !executive ? `${stats.policies.bySource.autoSynthesized} auto-synthesized` : executive && stats ? "protecting production" : undefined}
             accent="#818CF8"
           />
           <StatCard
-            label="Total runs"
+            label={executive ? "Agent Sessions" : "Total runs"}
             value={String(stats?.runs.total ?? "—")}
             sub={stats?.runs.recent[0] ? timeAgo(stats.runs.recent[0].createdAt) : undefined}
           />
@@ -313,7 +375,7 @@ export default function CommandCenter({ onNavigate, onRequestRun }: CommandCente
               className="text-[10px] font-mono uppercase tracking-widest mb-2"
               style={{ color: "#8A8A93" }}
             >
-              Recent Runs
+              {executive ? "Recent Incidents" : "Recent Runs"}
             </div>
             <div className="space-y-1.5">
               {stats.runs.recent.map((run) => (
@@ -323,6 +385,178 @@ export default function CommandCenter({ onNavigate, onRequestRun }: CommandCente
                   onClick={() => onNavigate("Runtime")}
                 />
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Attack Surface Heatmap ──────────────────────────────────── */}
+        {!executive && attackSurface && attackSurface.totalRuns > 0 && (() => {
+          const tools = Object.entries(attackSurface.tools);
+          if (tools.length === 0) return null;
+          const maxAttacks = Math.max(...tools.map(([, v]) => v.attacks), 1);
+
+          function heatColor(attacks: number): { bg: string; border: string; text: string } {
+            if (attacks === 0) return { bg: "rgba(45,212,164,0.06)", border: "rgba(45,212,164,0.2)", text: "#2DD4A4" };
+            const ratio = attacks / maxAttacks;
+            if (ratio >= 0.7) return { bg: "rgba(255,90,90,0.12)", border: "rgba(255,90,90,0.4)", text: "#FF5A5A" };
+            if (ratio >= 0.3) return { bg: "rgba(247,185,85,0.1)", border: "rgba(247,185,85,0.35)", text: "#F7B955" };
+            return { bg: "rgba(253,211,77,0.08)", border: "rgba(253,211,77,0.25)", text: "#FCD34D" };
+          }
+
+          const sorted = tools.sort(([, a], [, b]) => b.attacks - a.attacks);
+
+          return (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
+                  Attack Surface
+                </span>
+                <span className="text-[9px] font-mono" style={{ color: "#8A8A93" }}>
+                  — which tools are targeted most
+                </span>
+              </div>
+              <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}>
+                {sorted.map(([tool, data]) => {
+                  const colors = heatColor(data.attacks);
+                  return (
+                    <div
+                      key={tool}
+                      className="flex flex-col gap-1 px-3 py-2 rounded-lg"
+                      style={{ background: colors.bg, border: `1px solid ${colors.border}` }}
+                    >
+                      <span className="text-[10px] font-mono font-medium truncate" style={{ color: colors.text }}>
+                        {tool.replace(/_/g, "_​")}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: "rgba(0,0,0,0.3)" }}>
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: data.total > 0 ? `${Math.round((data.attacks / data.total) * 100)}%` : "0%",
+                              background: colors.text,
+                            }}
+                          />
+                        </div>
+                        <span className="text-[9px] font-mono tabular-nums shrink-0" style={{ color: colors.text }}>
+                          {data.attacks}/{data.total}
+                        </span>
+                      </div>
+                      <span className="text-[9px] font-mono" style={{ color: "#8A8A93" }}>
+                        {data.attacks === 0
+                          ? "no attacks"
+                          : data.attacks === 1
+                          ? "1 attack intercepted"
+                          : `${data.attacks} attacks intercepted`}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── Policy Effectiveness Trend ───────────────────────────────── */}
+        {!executive && policyTrend && policyTrend.runsWithData >= 2 && (
+          <div
+            className="flex items-center gap-3 px-4 py-3 rounded-lg"
+            style={{
+              background: policyTrend.improving ? "rgba(45,212,164,0.05)" : "rgba(247,185,85,0.05)",
+              border: `1px solid ${policyTrend.improving ? "rgba(45,212,164,0.2)" : "rgba(247,185,85,0.2)"}`,
+            }}
+          >
+            <span className="text-base" style={{ color: policyTrend.improving ? "#2DD4A4" : "#F7B955" }}>
+              {policyTrend.improving ? "↓" : "→"}
+            </span>
+            <div>
+              <span className="text-xs font-mono font-semibold" style={{ color: policyTrend.improving ? "#2DD4A4" : "#F7B955" }}>
+                {policyTrend.improving ? "Detection getting faster" : "Detection stable"}
+              </span>
+              <span className="text-[10px] font-mono ml-2" style={{ color: "#8A8A93" }}>
+                across {policyTrend.runsWithData} runs
+                {policyTrend.improving ? " — policies are catching threats earlier in the tool-call sequence" : ""}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* ── MCP Integration ─────────────────────────────────────────── */}
+        {!executive && mcpStatus && (
+          <div
+            className="p-4 rounded-xl space-y-3"
+            style={{ background: "#0D0D12", border: "1px solid #262630" }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span
+                  className="w-2 h-2 rounded-full"
+                  style={{
+                    background: mcpStatus.status === "active" ? "#2DD4A4" : "#8A8A93",
+                    boxShadow: mcpStatus.status === "active" ? "0 0 6px #2DD4A4" : "none",
+                  }}
+                />
+                <span className="text-xs font-mono font-semibold" style={{ color: "#F5F5F7" }}>
+                  MCP Integration
+                </span>
+                <span
+                  className="text-[9px] font-mono px-1.5 py-0.5 rounded uppercase tracking-widest"
+                  style={{ background: "rgba(45,212,164,0.1)", color: "#2DD4A4", border: "1px solid rgba(45,212,164,0.2)" }}
+                >
+                  {mcpStatus.status}
+                </span>
+              </div>
+              <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>
+                v{mcpStatus.version} · {mcpStatus.transport}
+              </span>
+            </div>
+
+            <p className="text-[11px] font-mono" style={{ color: "#8A8A93" }}>
+              Connect Claude Code, Claude Desktop, or any MCP client — monitor agents, query policies, and pull blast radius reports programmatically.
+            </p>
+
+            {/* Tool chips */}
+            <div className="flex flex-wrap gap-1.5">
+              {mcpStatus.tools.map((tool) => {
+                const categoryColor: Record<string, { bg: string; text: string }> = {
+                  execution:     { bg: "rgba(167,139,250,0.1)", text: "#A78BFA" },
+                  observability: { bg: "rgba(125,211,252,0.1)", text: "#7DD3FC" },
+                  analysis:      { bg: "rgba(255,90,90,0.1)",   text: "#FF5A5A" },
+                  policy:        { bg: "rgba(99,102,241,0.1)",  text: "#818CF8" },
+                  metrics:       { bg: "rgba(45,212,164,0.1)",  text: "#2DD4A4" },
+                  "time-travel": { bg: "rgba(247,185,85,0.1)",  text: "#F7B955" },
+                  introspection: { bg: "rgba(139,139,147,0.1)", text: "#8A8A93" },
+                };
+                const c = categoryColor[tool.category] ?? { bg: "rgba(139,139,147,0.1)", text: "#8A8A93" };
+                return (
+                  <div
+                    key={tool.name}
+                    className="group relative"
+                    title={tool.description}
+                  >
+                    <span
+                      className="text-[9px] font-mono px-2 py-1 rounded cursor-default"
+                      style={{ background: c.bg, color: c.text }}
+                    >
+                      {tool.name}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Connect instructions */}
+            <div
+              className="px-3 py-2 rounded text-[10px] font-mono"
+              style={{ background: "#14141A", border: "1px solid #262630", color: "#8A8A93" }}
+            >
+              <span style={{ color: "#4ADE80" }}>$</span>{" "}
+              <span style={{ color: "#F5F5F7" }}>npx</span>{" "}
+              <span style={{ color: "#7DD3FC" }}>tsx</span>{" "}
+              <span>apps/engine/src/mcp/index.ts</span>
+              <span className="ml-3 text-[9px]" style={{ color: "#8A8A93" }}>
+                — Claude Code: add to .mcp.json as stdio transport
+              </span>
             </div>
           </div>
         )}

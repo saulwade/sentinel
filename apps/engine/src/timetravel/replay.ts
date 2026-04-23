@@ -53,6 +53,7 @@ export async function forkAndReplay(
       agentConfig: run.agentConfig,
       parentRunId: run.parentRunId,
       forkAtSeq: fromSeq,
+      orgId: 'default-org',
     })
     .run();
 

@@ -6,7 +6,20 @@ export type EventType =
   | 'decision'
   | 'user_input'
   | 'fork_narration'
-  | 'sim_event';
+  | 'sim_event'
+  | 'counterfactual';
+
+export interface CounterfactualPayload {
+  decisionEventId: string;
+  narration: string;
+  simulatedSteps: Array<{
+    tool: string;
+    args: Record<string, unknown>;
+    outcome: string;
+  }>;
+  damageSummary: string;
+  source: 'opus';
+}
 
 export type Verdict = 'ALLOW' | 'PAUSE' | 'BLOCK';
 

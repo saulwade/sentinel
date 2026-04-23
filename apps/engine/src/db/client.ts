@@ -1,11 +1,9 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { sql } from 'drizzle-orm';
 import * as schema from './schema.js';
 
 const DB_PATH = process.env.DB_PATH ?? './data/sentinel.db';
 
-// Ensure data directory exists
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 mkdirSync(dirname(DB_PATH), { recursive: true });
@@ -41,4 +39,27 @@ sqlite.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS run_seq_idx ON events(run_id, seq);
   CREATE INDEX IF NOT EXISTS parent_idx ON events(parent_event_id);
   CREATE INDEX IF NOT EXISTS run_type_idx ON events(run_id, type);
+
+  CREATE TABLE IF NOT EXISTS policies (
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    description     TEXT NOT NULL DEFAULT '',
+    severity        TEXT NOT NULL,
+    action          TEXT NOT NULL,
+    source          TEXT NOT NULL,
+    enabled         INTEGER NOT NULL DEFAULT 1,
+    reasoning       TEXT,
+    when_json       TEXT NOT NULL,
+    created_at      INTEGER NOT NULL,
+    source_attack_id TEXT
+  );
 `);
+
+// Add orgId column to existing tables if not present.
+// SQLite has no "ADD COLUMN IF NOT EXISTS" — use try/catch.
+for (const stmt of [
+  `ALTER TABLE runs     ADD COLUMN org_id TEXT NOT NULL DEFAULT 'default-org'`,
+  `ALTER TABLE policies ADD COLUMN org_id TEXT NOT NULL DEFAULT 'default-org'`,
+]) {
+  try { sqlite.exec(stmt); } catch { /* column already exists */ }
+}

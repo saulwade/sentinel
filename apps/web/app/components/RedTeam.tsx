@@ -62,6 +62,39 @@ interface Policy {
   when: unknown[];
 }
 
+// ─── Drift Detector types (mirror @sentinel/shared/drift) ─────────────────────
+
+interface DriftRedundant {
+  kind: "redundant";
+  policyId: string;
+  coveredBy: string;
+  reasoning: string;
+}
+interface DriftBlindSpot {
+  kind: "blind-spot";
+  pattern: string;
+  evidenceRuns: string[];
+  suggestedPolicy: Policy;
+  reasoning: string;
+}
+interface DriftDeadCode {
+  kind: "dead-code";
+  policyId: string;
+  matchesInRuns: number;
+  totalRunsConsidered: number;
+  reasoning: string;
+}
+type DriftFinding = DriftRedundant | DriftBlindSpot | DriftDeadCode;
+
+interface DriftAuditResponse {
+  findings: DriftFinding[];
+  policiesReviewed: number;
+  runsReviewed: number;
+  eventsReviewed: number;
+  thinkingTokens?: number;
+  contextTokens?: number;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function outcomeColor(o: string) {
@@ -98,6 +131,18 @@ export default function RedTeam() {
   const [adoptedIds, setAdoptedIds] = useState<Set<string>>(new Set());
   const [simLoading, setSimLoading] = useState<string | null>(null);
   const [simResults, setSimResults] = useState<Map<string, { totalRuns: number; wouldBlock: number; wouldPause: number; falsePositives: number }>>(new Map());
+  const [authorText, setAuthorText] = useState("");
+  const [authoring, setAuthoring] = useState(false);
+  const [authorError, setAuthorError] = useState<string | null>(null);
+  const [authoredPolicy, setAuthoredPolicy] = useState<Policy | null>(null);
+
+  // Drift Detector state
+  const [driftOpen, setDriftOpen] = useState(false);
+  const [driftRunning, setDriftRunning] = useState(false);
+  const [driftThinking, setDriftThinking] = useState("");
+  const [driftResult, setDriftResult] = useState<DriftAuditResponse | null>(null);
+  const [driftError, setDriftError] = useState<string | null>(null);
+  const [driftAdopted, setDriftAdopted] = useState<Set<string>>(new Set());
 
   const fetchPolicies = useCallback(async () => {
     try {
@@ -239,10 +284,136 @@ export default function RedTeam() {
     } catch {}
   }
 
+  async function authorPolicy() {
+    const description = authorText.trim();
+    if (description.length < 8 || authoring) return;
+    setAuthoring(true);
+    setAuthorError(null);
+    setAuthoredPolicy(null);
+    try {
+      const res = await fetch(`${ENGINE}/policies/synthesize-from-text`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAuthorError(data.error ?? "Synthesis failed");
+      } else {
+        setAuthoredPolicy(data.policy as Policy);
+      }
+    } catch (err) {
+      setAuthorError(err instanceof Error ? err.message : "Network error");
+    }
+    setAuthoring(false);
+  }
+
+  function dismissAuthored() {
+    setAuthoredPolicy(null);
+    setAuthorError(null);
+    setAuthorText("");
+    setSimResults((prev) => {
+      const next = new Map(prev);
+      if (authoredPolicy) next.delete(authoredPolicy.id);
+      return next;
+    });
+  }
+
   async function revokePolicy(id: string) {
     try {
       const res = await fetch(`${ENGINE}/policies/${id}`, { method: "DELETE" });
       if (res.ok) await fetchPolicies();
+    } catch {}
+  }
+
+  async function runAudit() {
+    setDriftOpen(true);
+    setDriftRunning(true);
+    setDriftThinking("");
+    setDriftResult(null);
+    setDriftError(null);
+    setDriftAdopted(new Set());
+
+    try {
+      const res = await fetch(`${ENGINE}/policies/audit`, { method: "POST" });
+      if (!res.body) throw new Error("no response body");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const frames = buffer.split("\n\n");
+        buffer = frames.pop() ?? "";
+
+        for (const frame of frames) {
+          const lines = frame.split("\n");
+          let eventName = "message";
+          let data = "";
+          for (const line of lines) {
+            if (line.startsWith("event:")) eventName = line.slice(6).trim();
+            else if (line.startsWith("data:")) data += line.slice(5).trim();
+          }
+          if (!data) continue;
+
+          if (eventName === "thinking_delta") {
+            setDriftThinking((prev) => prev + data);
+          } else if (eventName === "result") {
+            try {
+              setDriftResult(JSON.parse(data));
+            } catch {
+              setDriftError("failed to parse findings");
+            }
+          } else if (eventName === "error") {
+            try { setDriftError(JSON.parse(data).error ?? data); } catch { setDriftError(data); }
+          }
+        }
+      }
+    } catch (e) {
+      setDriftError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDriftRunning(false);
+    }
+  }
+
+  async function adoptSuggestedPolicy(p: Policy) {
+    try {
+      const res = await fetch(`${ENGINE}/policies`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(p),
+      });
+      if (res.ok) {
+        setDriftAdopted((prev) => new Set(prev).add(p.id));
+        await fetchPolicies();
+      }
+    } catch {}
+  }
+
+  async function revokeFromDrift(id: string) {
+    try {
+      const res = await fetch(`${ENGINE}/policies/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setDriftAdopted((prev) => new Set(prev).add(`revoked:${id}`));
+        await fetchPolicies();
+      }
+    } catch {}
+  }
+
+  async function exportPolicies() {
+    try {
+      const res = await fetch(`${ENGINE}/policies/export`);
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `sentinel-policies-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch {}
   }
 
@@ -568,6 +739,115 @@ export default function RedTeam() {
             )}
           </div>
 
+          {/* Policy authoring — natural language → DSL */}
+          <div className="shrink-0 border-t" style={{ borderColor: "#262630" }}>
+            <div
+              className="px-4 py-2 text-[10px] font-mono uppercase tracking-widest flex items-center gap-2"
+              style={{ color: "#8A8A93", borderBottom: "1px solid #262630", background: "#0A0A0D" }}
+            >
+              ✎ Author Policy
+              <span className="text-[9px] normal-case tracking-normal" style={{ color: "#8A8A93" }}>
+                natural language → DSL via Opus
+              </span>
+            </div>
+            <div className="p-3 space-y-2">
+              {!authoredPolicy && (
+                <>
+                  <textarea
+                    value={authorText}
+                    onChange={(e) => setAuthorText(e.target.value)}
+                    placeholder="e.g. Block any refund over $5,000 unless it references a verified SLA breach"
+                    rows={2}
+                    disabled={authoring}
+                    className="w-full px-2.5 py-1.5 rounded text-[11px] font-mono resize-none disabled:opacity-50 focus:outline-none"
+                    style={{ background: "#14141A", color: "#F5F5F7", border: "1px solid #262630" }}
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={authorPolicy}
+                      disabled={authoring || authorText.trim().length < 8}
+                      className="py-1.5 px-3 rounded text-[10px] font-mono font-medium transition-all active:scale-95 hover:brightness-110 disabled:opacity-40"
+                      style={{ background: "rgba(167,139,250,0.15)", color: "#A78BFA", border: "1px solid rgba(167,139,250,0.4)" }}
+                    >
+                      {authoring ? "⟳ Synthesizing with Opus…" : "✦ Synthesize →"}
+                    </button>
+                    {authorError && (
+                      <span className="text-[10px] font-mono" style={{ color: "#FF5A5A" }}>{authorError}</span>
+                    )}
+                  </div>
+                </>
+              )}
+              {authoredPolicy && (() => {
+                const isAdopted = adoptedIds.has(authoredPolicy.id);
+                const sim = simResults.get(authoredPolicy.id);
+                const isSimming = simLoading === authoredPolicy.id;
+                return (
+                  <div className="p-2.5 rounded space-y-2" style={{ background: "rgba(167,139,250,0.06)", border: "1px solid rgba(167,139,250,0.3)" }}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#A78BFA" }}>
+                        Authored Policy
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {!isAdopted ? (
+                          <button
+                            onClick={() => adopt(authoredPolicy)}
+                            className="text-[10px] font-mono font-bold px-2 py-0.5 rounded transition-all active:scale-95 hover:brightness-110"
+                            style={{ background: "#A78BFA", color: "#0A0A0D" }}
+                          >
+                            Adopt →
+                          </button>
+                        ) : (
+                          <span className="text-[10px] font-mono" style={{ color: "#2DD4A4" }}>✓ Adopted</span>
+                        )}
+                        <button
+                          onClick={dismissAuthored}
+                          className="text-[10px] font-mono px-1.5 py-0.5 rounded transition-all hover:brightness-150"
+                          style={{ color: "#8A8A93", background: "#1C1C24" }}
+                          title="Dismiss"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-[11px] font-mono font-bold" style={{ color: "#F5F5F7" }}>{authoredPolicy.name}</p>
+                    <p className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>{authoredPolicy.description}</p>
+                    {authoredPolicy.reasoning && (
+                      <p className="text-[10px] font-mono italic" style={{ color: "#A78BFA" }}>{authoredPolicy.reasoning}</p>
+                    )}
+                    {!isAdopted && (
+                      sim ? (
+                        <div
+                          className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-mono"
+                          style={{
+                            background: sim.falsePositives === 0 ? "rgba(45,212,164,0.06)" : "rgba(247,185,85,0.06)",
+                            border: `1px solid ${sim.falsePositives === 0 ? "rgba(45,212,164,0.2)" : "rgba(247,185,85,0.2)"}`,
+                          }}
+                        >
+                          <span style={{ color: sim.falsePositives === 0 ? "#2DD4A4" : "#F7B955" }}>
+                            {sim.totalRuns === 0
+                              ? "No runs to test against"
+                              : sim.falsePositives === 0
+                              ? `✓ Would catch ${sim.wouldBlock + sim.wouldPause} · 0 false positives`
+                              : `⚠ ${sim.wouldBlock + sim.wouldPause} matches · ${sim.falsePositives} false positives`}
+                          </span>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => simulate(authoredPolicy)}
+                          disabled={isSimming}
+                          className="w-full py-1 rounded text-[10px] font-mono transition-all active:scale-95 hover:brightness-110 disabled:opacity-50"
+                          style={{ background: "#14141A", color: "#8A8A93", border: "1px solid #262630" }}
+                        >
+                          {isSimming ? "Testing…" : "Test against history →"}
+                        </button>
+                      )
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
           {/* Policy catalog */}
           <div className="h-[220px] overflow-y-auto shrink-0">
             <div
@@ -575,7 +855,24 @@ export default function RedTeam() {
               style={{ color: "#8A8A93", borderBottom: "1px solid #262630", background: "#0A0A0D" }}
             >
               Active Policies
-              <span className="ml-auto tabular-nums">{policies.length}</span>
+              <span className="tabular-nums">{policies.length}</span>
+              <button
+                onClick={runAudit}
+                disabled={driftRunning}
+                title="Opus audits the active policy set — finds redundancy, blind spots, and dead code"
+                className="ml-auto px-1.5 py-0.5 rounded text-[9px] font-mono transition-all hover:brightness-150 disabled:opacity-50"
+                style={{ color: "#A78BFA", background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.25)" }}
+              >
+                ✦ Audit
+              </button>
+              <button
+                onClick={exportPolicies}
+                title="Download all policies as JSON — version-control in Git"
+                className="px-1.5 py-0.5 rounded text-[9px] font-mono transition-all hover:brightness-150"
+                style={{ color: "#8A8A93", background: "#1C1C24", border: "1px solid #262630" }}
+              >
+                ↓ Export
+              </button>
             </div>
             {policies.map((p) => (
               <div
@@ -617,6 +914,219 @@ export default function RedTeam() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* ── Drift Audit Panel ──────────────────────────────────────────── */}
+      {driftOpen && (
+        <DriftPanel
+          running={driftRunning}
+          thinking={driftThinking}
+          result={driftResult}
+          error={driftError}
+          adopted={driftAdopted}
+          onClose={() => setDriftOpen(false)}
+          onAdopt={adoptSuggestedPolicy}
+          onRevoke={revokeFromDrift}
+          onRerun={runAudit}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Drift Audit Panel ────────────────────────────────────────────────────────
+
+function DriftPanel({
+  running, thinking, result, error, adopted, onClose, onAdopt, onRevoke, onRerun,
+}: {
+  running: boolean;
+  thinking: string;
+  result: DriftAuditResponse | null;
+  error: string | null;
+  adopted: Set<string>;
+  onClose: () => void;
+  onAdopt: (p: Policy) => void;
+  onRevoke: (id: string) => void;
+  onRerun: () => void;
+}) {
+  const [showThinking, setShowThinking] = useState(false);
+  const findingColor = (k: string) =>
+    k === "blind-spot" ? "#FF5A5A" : k === "redundant" ? "#F7B955" : "#8A8A93";
+  const findingLabel = (k: string) =>
+    k === "blind-spot" ? "Blind Spot" : k === "redundant" ? "Redundant" : "Dead Code";
+
+  return (
+    <div
+      className="fixed inset-y-0 right-0 w-[520px] z-40 flex flex-col shadow-2xl animate-slide-in-right"
+      style={{ background: "#0D0D12", borderLeft: "1px solid #262630" }}
+    >
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0" style={{ borderColor: "#262630" }}>
+        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.1)", color: "#A78BFA" }}>
+          OPUS AUDIT
+        </span>
+        <span className="text-sm font-mono font-semibold" style={{ color: "#F5F5F7" }}>
+          Policy Drift
+        </span>
+        {result && (
+          <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>
+            {result.policiesReviewed} policies · {result.runsReviewed} runs · {result.eventsReviewed} events
+          </span>
+        )}
+        <button
+          onClick={onClose}
+          className="ml-auto text-[10px] font-mono px-2 py-0.5 rounded transition-all hover:brightness-150"
+          style={{ color: "#8A8A93", background: "#1C1C24", border: "1px solid #262630" }}
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {/* Thinking */}
+        {(running || thinking) && (
+          <div className="rounded-lg" style={{ background: "rgba(167,139,250,0.04)", border: "1px solid rgba(167,139,250,0.2)" }}>
+            <button onClick={() => setShowThinking((v) => !v)} className="w-full flex items-center gap-2 px-3 py-2">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: running ? "#A78BFA" : "#8A8A93", animation: running ? "pulse 1.5s ease-in-out infinite" : undefined }} />
+              <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#A78BFA" }}>
+                {running ? "Opus auditing" : "Thinking"}
+              </span>
+              <span className="text-[10px] font-mono tabular-nums" style={{ color: "#8A8A93" }}>
+                ~{Math.ceil(thinking.length / 4)} tokens
+              </span>
+              <span className="ml-auto text-[10px] font-mono" style={{ color: "#8A8A93" }}>
+                {showThinking ? "hide" : "show"}
+              </span>
+            </button>
+            {showThinking && thinking && (
+              <pre className="px-3 pb-3 text-[11px] font-mono leading-relaxed whitespace-pre-wrap break-words" style={{ color: "#A78BFA", maxHeight: "200px", overflowY: "auto" }}>
+                {thinking}
+              </pre>
+            )}
+          </div>
+        )}
+
+        {error && (
+          <div className="rounded-lg px-4 py-3" style={{ background: "rgba(255,90,90,0.05)", border: "1px solid rgba(255,90,90,0.25)" }}>
+            <p className="text-xs font-mono" style={{ color: "#FF5A5A" }}>{error}</p>
+          </div>
+        )}
+
+        {result && result.findings.length === 0 && !running && (
+          <div className="rounded-lg px-4 py-6 text-center" style={{ background: "rgba(45,212,164,0.04)", border: "1px solid rgba(45,212,164,0.2)" }}>
+            <div className="text-sm font-mono" style={{ color: "#2DD4A4" }}>
+              ✓ Policy set looks healthy
+            </div>
+            <div className="text-[11px] font-mono mt-1" style={{ color: "#8A8A93" }}>
+              Opus found no redundancy, blind spots, or dead code across {result.runsReviewed} runs
+            </div>
+          </div>
+        )}
+
+        {result?.findings.map((f, i) => {
+          const color = findingColor(f.kind);
+          return (
+            <div
+              key={i}
+              className="rounded-lg p-3 space-y-2"
+              style={{ background: `${color}0D`, border: `1px solid ${color}33` }}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] font-mono font-bold uppercase tracking-widest px-1.5 py-0.5 rounded"
+                  style={{ background: `${color}26`, color }}>
+                  {findingLabel(f.kind)}
+                </span>
+                {f.kind === "blind-spot" && (
+                  <span className="text-[10px] font-mono truncate" style={{ color: "#F5F5F7" }}>
+                    {f.pattern}
+                  </span>
+                )}
+                {f.kind === "redundant" && (
+                  <span className="text-[10px] font-mono truncate" style={{ color: "#F5F5F7" }}>
+                    <code>{f.policyId}</code> ⊆ <code>{f.coveredBy}</code>
+                  </span>
+                )}
+                {f.kind === "dead-code" && (
+                  <span className="text-[10px] font-mono truncate" style={{ color: "#F5F5F7" }}>
+                    <code>{f.policyId}</code> · 0 matches in {f.totalRunsConsidered} runs
+                  </span>
+                )}
+              </div>
+
+              <p className="text-[11px] font-mono leading-relaxed" style={{ color: "#8A8A93" }}>
+                {f.reasoning}
+              </p>
+
+              {f.kind === "blind-spot" && (
+                <>
+                  <div className="rounded p-2" style={{ background: "#14141A", border: "1px solid #262630" }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
+                        Suggested policy
+                      </span>
+                      <span className="text-[9px] font-mono px-1 py-0.5 rounded"
+                        style={{ background: f.suggestedPolicy.action === "block" ? "rgba(255,90,90,0.15)" : "rgba(247,185,85,0.15)", color: f.suggestedPolicy.action === "block" ? "#FF5A5A" : "#F7B955" }}>
+                        {f.suggestedPolicy.action.toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="text-[11px] font-mono" style={{ color: "#F5F5F7" }}>
+                      {f.suggestedPolicy.name}
+                    </div>
+                    {f.suggestedPolicy.description && (
+                      <div className="text-[10px] font-mono mt-1" style={{ color: "#8A8A93" }}>
+                        {f.suggestedPolicy.description}
+                      </div>
+                    )}
+                  </div>
+                  {f.evidenceRuns.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {f.evidenceRuns.map((r) => (
+                        <span key={r} className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(45,212,164,0.1)", color: "#2DD4A4" }}>
+                          run {r.slice(0, 6)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => onAdopt(f.suggestedPolicy)}
+                    disabled={adopted.has(f.suggestedPolicy.id)}
+                    className="px-3 py-1 rounded text-[10px] font-mono font-medium transition-all active:scale-95 hover:brightness-110 disabled:opacity-60"
+                    style={{ background: adopted.has(f.suggestedPolicy.id) ? "#2DD4A4" : "#A78BFA", color: "#0A0A0D" }}
+                  >
+                    {adopted.has(f.suggestedPolicy.id) ? "✓ Adopted" : "Adopt →"}
+                  </button>
+                </>
+              )}
+
+              {(f.kind === "redundant" || f.kind === "dead-code") && (
+                <button
+                  onClick={() => onRevoke(f.policyId)}
+                  disabled={adopted.has(`revoked:${f.policyId}`)}
+                  className="px-3 py-1 rounded text-[10px] font-mono font-medium transition-all active:scale-95 hover:brightness-110 disabled:opacity-60"
+                  style={{ background: adopted.has(`revoked:${f.policyId}`) ? "#8A8A93" : "#1C1C24", color: adopted.has(`revoked:${f.policyId}`) ? "#0A0A0D" : "#FF5A5A", border: "1px solid #FF5A5A30" }}
+                >
+                  {adopted.has(`revoked:${f.policyId}`) ? "✓ Revoked" : "Revoke →"}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer */}
+      <div className="shrink-0 p-3 border-t flex items-center gap-2" style={{ borderColor: "#262630" }}>
+        <button
+          onClick={onRerun}
+          disabled={running}
+          className="text-[10px] font-mono px-3 py-1.5 rounded transition-all hover:brightness-125 disabled:opacity-50"
+          style={{ background: "#1C1C24", color: "#A78BFA", border: "1px solid rgba(167,139,250,0.3)" }}
+        >
+          {running ? "Auditing…" : "↻ Re-audit"}
+        </button>
+        <span className="text-[9px] font-mono ml-auto" style={{ color: "#5A5A63" }}>
+          Opus 4.7 · 5k thinking budget
+        </span>
       </div>
     </div>
   );

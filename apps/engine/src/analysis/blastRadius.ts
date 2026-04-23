@@ -167,6 +167,31 @@ export function computeBlastRadius(events: AgentEvent[]): BlastRadius {
         if (wasExecuted) slackMessagesSent++;
         break;
       }
+
+      case 'execute_agent_recommendation': {
+        // The inner action is what would have fired. When interdicted, the
+        // outer block prevents whatever the subagent embedded — most commonly
+        // a send_email to an external domain.
+        const action = (callArgs.action as { tool?: string; args?: Record<string, unknown> } | undefined) ?? {};
+        const innerTool = action.tool;
+        const innerArgs = action.args ?? {};
+        if (wasInterdicted) {
+          if (innerTool === 'send_email') {
+            const to = String(innerArgs.to ?? '');
+            if (isExternal(to)) {
+              externalEmailsBlocked.push(extractDomain(to) ?? to);
+              const body = String(innerArgs.body ?? '') + String(innerArgs.subject ?? '');
+              if (body.match(/@|customer|email|name|PII|export|list|LTV|portfolio/i)) {
+                piiExfiltrationAttempted = true;
+              }
+            }
+          } else if (innerTool === 'apply_refund') {
+            const amt = typeof innerArgs.amount === 'number' ? innerArgs.amount : 0;
+            moneyInterdicted += amt;
+          }
+        }
+        break;
+      }
     }
   }
 

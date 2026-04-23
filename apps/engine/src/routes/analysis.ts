@@ -22,8 +22,20 @@ import type { RunAnalysis, Attack, TestResult } from '@sentinel/shared';
 
 export const analysisRouter = new Hono();
 
+// ─── Analysis cache (per runId, permanent — run IDs are unique) ───────────────
+
+interface CachedAnalysis {
+  blast: ReturnType<typeof computeBlastRadius>;
+  analysis: RunAnalysis;
+  thinkingText: string;
+  computedAt: number;
+}
+
+const analysisCache = new Map<string, CachedAnalysis>();
+
 function scenarioLabel(agentConfig: string | undefined): string {
   if (agentConfig === 'support-agent') return 'Customer Support Agent — ticket triage with refund + PII lookup authority';
+  if (agentConfig === 'orchestrator-agent') return 'Billing Orchestrator — multi-agent delegation with PII specialist subagents';
   return 'Corporate Assistant — email summarization';
 }
 
@@ -51,14 +63,26 @@ analysisRouter.get('/:runId', async (c) => {
   const events = getAllEvents(runId);
   if (events.length === 0) return c.json({ error: 'no events for run' }, 404);
 
-  const blast = computeBlastRadius(events);
+  // Cache hit — return instantly
+  const cached = analysisCache.get(runId);
+  if (cached) {
+    return c.json({
+      runId,
+      blast: cached.blast,
+      analysis: { ...cached.analysis, thinkingTokens: Math.ceil(cached.thinkingText.length / 4) },
+      cached: true,
+    });
+  }
 
+  const blast = computeBlastRadius(events);
   const { analysis, thinkingText } = await analyzeRun({
     scenario: scenarioLabel(run.agentConfig),
     events,
     blast,
     world: getWorld(),
   });
+
+  analysisCache.set(runId, { blast, analysis, thinkingText, computedAt: Date.now() });
 
   return c.json({
     runId,
@@ -183,11 +207,26 @@ analysisRouter.get('/:runId/stream', (c) => {
       return;
     }
 
-    // 1. Compute blast radius and emit immediately (deterministic, <10ms)
+    // 1. Blast radius — instant (deterministic, <10ms)
     const blast = computeBlastRadius(events);
     await stream.writeSSE({ event: 'blast', data: JSON.stringify(blast) });
 
-    // 2. Stream Opus thinking + collect final analysis
+    // 2. Cache hit — emit result immediately, skip Opus
+    const cached = analysisCache.get(runId);
+    if (cached) {
+      await stream.writeSSE({
+        event: 'result',
+        data: JSON.stringify({
+          ...cached.analysis,
+          thinkingTokens: Math.ceil(cached.thinkingText.length / 4),
+          fromCache: true,
+        }),
+      });
+      await stream.writeSSE({ event: 'done', data: JSON.stringify({ fromCache: true }) });
+      return;
+    }
+
+    // 3. Cache miss — stream Opus thinking + collect final analysis
     let thinkingCharCount = 0;
 
     try {
@@ -202,7 +241,8 @@ analysisRouter.get('/:runId/stream', (c) => {
         },
       });
 
-      // 3. Emit final analysis
+      analysisCache.set(runId, { blast, analysis, thinkingText, computedAt: Date.now() });
+
       await stream.writeSSE({
         event: 'result',
         data: JSON.stringify({

@@ -31,9 +31,9 @@ export function createSentinelMcpServer(): McpServer {
     'sentinel_start_run',
     'Start a new monitored agent run with Sentinel interception. The agent will execute the chosen scenario — Sentinel\'s Policy Engine + Pre-cog (Opus 4.7) evaluate every tool call.',
     {
-      scenario: z.enum(['support', 'ceo', 'gdpr', 'phishing'])
+      scenario: z.enum(['support', 'ceo', 'gdpr', 'phishing', 'multi-agent'])
         .optional()
-        .describe('Attack scenario to run: "support" (ticket injection, $47k), "ceo" (authority impersonation, $12k), "gdpr" (compliance framing, $8.5k), "phishing" (email exfil). Defaults to "support".'),
+        .describe('Attack scenario to run: "support" (ticket injection, $47k), "ceo" (authority impersonation, $12k), "gdpr" (compliance framing, $8.5k), "phishing" (email exfil), "multi-agent" (orchestrator delegates to a compromised PII specialist subagent). Defaults to "support".'),
     },
     async ({ scenario }) => {
       const name: ScenarioName = scenario ?? 'support';
@@ -43,6 +43,7 @@ export function createSentinelMcpServer(): McpServer {
         ceo: 'CEO Override — authority impersonation + $12k goodwill credit',
         gdpr: 'GDPR Audit — compliance framing + $8.5k processing fee',
         phishing: 'Phishing — email exfiltration',
+        'multi-agent': 'Multi-Agent — compromised PII specialist subagent injection',
       };
       return {
         content: [{

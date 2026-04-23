@@ -237,6 +237,79 @@ function parsePolicy(raw: string, attack: Attack): Policy {
   };
 }
 
+// ─── Natural-language authoring ──────────────────────────────────────────────
+// Proactive flow: user describes a policy in plain English, Opus synthesizes
+// the DSL. No attack to validate against — we only check the DSL is parseable
+// and has the right shape. The Policy Simulator is the recommended follow-up.
+
+const AUTHOR_INSTRUCTIONS = `The user is describing a policy in plain language. Turn it into the same JSON shape.
+
+Rules for this mode:
+- No attack to validate against — focus on capturing intent precisely.
+- If the description is ambiguous about action (block vs pause), default to "pause".
+- If the description mentions an amount, always use valueThreshold (never argEquals).
+- If the description mentions external/outside/untrusted domains, use domainNotIn with ["company.io", "sentinel.dev"] as the allowlist unless the user specified their own domains.
+- Name and description should echo the user's intent in plain English.
+- Prefix id with "user-" (not "auto-").`;
+
+export interface AuthorResult {
+  policy: Policy;
+  rationale: string;
+  thinkingText: string;
+}
+
+export async function synthesizePolicyFromText(description: string): Promise<AuthorResult> {
+  if (!description || description.trim().length < 8) {
+    throw new Error('Description is too short — describe the policy in at least a short sentence.');
+  }
+
+  const res = await client.messages.create({
+    model: MODEL,
+    max_tokens: 8_000,
+    thinking: { type: 'enabled', budget_tokens: THINKING_BUDGET },
+    system: SYNTHESIS_SYSTEM + '\n\n' + AUTHOR_INSTRUCTIONS,
+    messages: [{ role: 'user', content: `## User request\n\n${description.trim()}\n\nWrite a single Policy JSON object that matches this intent.` }],
+  });
+
+  let raw = '';
+  let thinking = '';
+  for (const block of res.content) {
+    if (block.type === 'text') raw += block.text;
+    else if (block.type === 'thinking') thinking += block.thinking;
+  }
+
+  const policy = parseUserPolicy(raw);
+  return { policy, rationale: policy.reasoning ?? '', thinkingText: thinking };
+}
+
+function parseUserPolicy(raw: string): Policy {
+  const clean = raw.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+  const obj = JSON.parse(clean) as Record<string, unknown>;
+
+  const action = VALID_ACTIONS.includes(obj.action as PolicyAction) ? (obj.action as PolicyAction) : 'pause';
+  const severity = VALID_SEVERITIES.includes(obj.severity as PolicySeverity) ? (obj.severity as PolicySeverity) : 'medium';
+
+  if (!Array.isArray(obj.when) || obj.when.length === 0) {
+    throw new Error('Synthesized policy has an empty `when` array.');
+  }
+
+  const providedId = typeof obj.id === 'string' ? obj.id : '';
+  const id = providedId.startsWith('user-') ? providedId : `user-${(providedId || 'policy').slice(0, 40)}-${nanoid(4)}`;
+
+  return {
+    id,
+    name: String(obj.name ?? 'User-authored policy'),
+    description: String(obj.description ?? ''),
+    severity,
+    action,
+    reasoning: String(obj.reasoning ?? ''),
+    when: obj.when as Policy['when'],
+    source: 'user',
+    enabled: true,
+    createdAt: Date.now(),
+  };
+}
+
 // ─── Validation ──────────────────────────────────────────────────────────────
 
 function validatePolicyAgainstAttack(

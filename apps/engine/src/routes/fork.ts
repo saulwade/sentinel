@@ -3,6 +3,16 @@ import { streamSSE } from 'hono/streaming';
 import { forkAndReplay } from '../timetravel/replay.js';
 import { getAllEvents } from '../timetravel/snapshot.js';
 import { narrateFork } from '../fork/narrate.js';
+import { getRun } from '../agent/runner.js';
+
+async function waitForRun(runId: string, timeoutMs = 30_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const run = getRun(runId);
+    if (run && run.status !== 'running') return;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+}
 
 export const forkRouter = new Hono();
 
@@ -18,8 +28,8 @@ forkRouter.post('/:runId', async (c) => {
   // 1. Fork and replay
   const forkRun = await forkAndReplay(parentRunId, body.fromSeq, body.editedWorld as any);
 
-  // 2. Wait a bit for the fork to finish (it's fast — scripted agent)
-  await new Promise((r) => setTimeout(r, 20_000));
+  // 2. Wait for the fork to finish
+  await waitForRun(forkRun.id);
 
   // 3. Get events from both branches
   const originalEvents = getAllEvents(parentRunId);
@@ -49,7 +59,7 @@ forkRouter.post('/:runId/stream', (c) => {
     await stream.writeSSE({ event: 'fork_started', data: JSON.stringify({ forkRunId: forkRun.id }) });
 
     // Wait for fork to complete
-    await new Promise((r) => setTimeout(r, 20_000));
+    await waitForRun(forkRun.id);
 
     const originalEvents = getAllEvents(parentRunId);
     const forkEvents = getAllEvents(forkRun.id);

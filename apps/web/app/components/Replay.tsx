@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import AttackChain from "./AttackChain";
 
 const ENGINE = "http://localhost:3001";
 
@@ -127,7 +128,19 @@ function severityColor(s: string) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function Replay({ runId, visible }: { runId: string | null; visible?: boolean }) {
+export default function Replay({
+  runId,
+  visible,
+  autoAnalyze,
+  onAutoAnalyzeConsumed,
+  onNavigate,
+}: {
+  runId: string | null;
+  visible?: boolean;
+  autoAnalyze?: boolean;
+  onAutoAnalyzeConsumed?: () => void;
+  onNavigate?: (tab: string) => void;
+}) {
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [cursor, setCursor] = useState(0);
   const [snap, setSnap] = useState<Snapshot | null>(null);
@@ -137,6 +150,7 @@ export default function Replay({ runId, visible }: { runId: string | null; visib
   const [originalBlast, setOriginalBlast] = useState<BlastRadius | null>(null);
   const [forkBlast, setForkBlast] = useState<BlastRadius | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
+  const [chainView, setChainView] = useState<"timeline" | "chain">("timeline");
   const [analysis, setAnalysis] = useState<RunAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisThinking, setAnalysisThinking] = useState("");
@@ -160,6 +174,15 @@ export default function Replay({ runId, visible }: { runId: string | null; visib
         if (evts.length > 0) setCursor(evts[evts.length - 1].seq);
       });
   }, [runId, visible]);
+
+  // Auto Demo: trigger analysis automatically when signaled from Shell
+  useEffect(() => {
+    if (!autoAnalyze || !visible || !runId || analysisLoading) return;
+    onAutoAnalyzeConsumed?.();
+    const t = setTimeout(() => startAnalysis(), 900);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAnalyze, visible, runId]);
 
   useEffect(() => {
     if (!runId || cursor === 0) return;
@@ -294,16 +317,27 @@ export default function Replay({ runId, visible }: { runId: string | null; visib
 
   if (!runId) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-3">
-        <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "#14141A" }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A8A93" strokeWidth="1.5">
-            <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: "#14141A", border: "1px solid #262630" }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A8A93" strokeWidth="1.5">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
         </div>
-        <p className="font-mono text-sm" style={{ color: "#F5F5F7" }}>Replay & Counterfactual</p>
-        <p className="font-mono text-xs text-center max-w-xs" style={{ color: "#8A8A93" }}>
-          Run the agent first, then scrub through events · edit world state · branch to an alternate timeline
-        </p>
+        <div className="text-center space-y-1.5">
+          <p className="font-mono text-sm font-semibold" style={{ color: "#F5F5F7" }}>No incident to investigate</p>
+          <p className="font-mono text-xs max-w-xs leading-relaxed" style={{ color: "#8A8A93" }}>
+            Run an agent scenario first — then come back here to scrub the timeline, edit world state, and branch to an alternate reality.
+          </p>
+        </div>
+        {onNavigate && (
+          <button
+            onClick={() => onNavigate("Runtime")}
+            className="px-4 py-2 rounded text-xs font-mono font-medium transition-all active:scale-95 hover:brightness-110"
+            style={{ background: "#A78BFA", color: "#0A0A0D" }}
+          >
+            ▶  Run Agent →
+          </button>
+        )}
       </div>
     );
   }
@@ -317,11 +351,37 @@ export default function Replay({ runId, visible }: { runId: string | null; visib
       <div className="px-4 py-3 border-b shrink-0" style={{ borderColor: "#262630" }}>
         <div className="flex items-center gap-2 mb-2">
           <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
-            Replay
+            Investigate
           </span>
           <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>{events.length} events</span>
-          <span className="text-[10px] font-mono ml-auto" style={{ color: "#8A8A93" }}>← → to scrub</span>
+          {chainView === "timeline" && (
+            <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>← → to scrub</span>
+          )}
+          {/* View toggle */}
+          <div className="flex rounded overflow-hidden ml-auto" style={{ border: "1px solid #262630" }}>
+            <button
+              onClick={() => setChainView("timeline")}
+              className="px-2.5 py-1 text-[9px] font-mono transition-all"
+              style={{
+                background: chainView === "timeline" ? "#1C1C24" : "transparent",
+                color: chainView === "timeline" ? "#F5F5F7" : "#8A8A93",
+              }}
+            >
+              Timeline
+            </button>
+            <button
+              onClick={() => setChainView("chain")}
+              className="px-2.5 py-1 text-[9px] font-mono transition-all"
+              style={{
+                background: chainView === "chain" ? "#1C1C24" : "transparent",
+                color: chainView === "chain" ? "#F5F5F7" : "#8A8A93",
+              }}
+            >
+              Attack Chain
+            </button>
+          </div>
         </div>
+        {chainView === "timeline" && (
         <div className="flex gap-1 flex-wrap mb-2">
           {events.map((ev) => {
             const isCurrent = ev.seq === cursor;
@@ -344,6 +404,16 @@ export default function Replay({ runId, visible }: { runId: string | null; visib
             );
           })}
         </div>
+        )}
+        {chainView === "chain" && (
+          <div className="mb-2">
+            <AttackChain
+              events={events}
+              onSelectSeq={setCursor}
+              selectedSeq={cursor}
+            />
+          </div>
+        )}
         {events.length > 0 && (
           <input
             type="range"

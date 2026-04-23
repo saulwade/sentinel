@@ -12,6 +12,17 @@ import { analysisRouter } from './routes/analysis.js';
 import { statsRouter } from './routes/stats.js';
 import { policiesRouter } from './routes/policies.js';
 import { settingsRouter } from './routes/settings.js';
+import { fleetRouter } from './routes/fleet.js';
+import { narrateRouter } from './routes/narrate.js';
+import { scenariosRouter } from './routes/scenarios.js';
+import { loadPoliciesFromDb } from './interceptor.js';
+import { loadRunsFromDb } from './agent/runner.js';
+import { adminRouter } from './routes/admin.js';
+import { askRouter } from './routes/ask.js';
+
+// Hydrate in-memory registries from SQLite on startup
+loadPoliciesFromDb();
+loadRunsFromDb();
 
 const app = new Hono();
 
@@ -31,6 +42,11 @@ app.route('/analysis', analysisRouter);
 app.route('/stats', statsRouter);
 app.route('/policies', policiesRouter);
 app.route('/settings', settingsRouter);
+app.route('/fleet', fleetRouter);
+app.route('/narrate', narrateRouter);
+app.route('/scenarios', scenariosRouter);
+app.route('/admin', adminRouter);
+app.route('/ask', askRouter);
 
 const PORT = Number(process.env.PORT ?? 3001);
 

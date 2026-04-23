@@ -12,12 +12,15 @@
  */
 
 import { Hono } from 'hono';
+import { streamSSE } from 'hono/streaming';
 import type { Policy } from '@sentinel/shared';
 import { getActivePolicies, adoptPolicy, revokePolicy } from '../interceptor.js';
 import { getAllRuns } from '../agent/runner.js';
 import { getAllEvents } from '../timetravel/snapshot.js';
 import { evaluatePolicies } from '../policies/engine.js';
 import { getWorld } from '../agent/world.js';
+import { synthesizePolicyFromText } from '../redteam/synthesize.js';
+import { auditPolicies } from '../analysis/driftDetect.js';
 
 export const policiesRouter = new Hono();
 
@@ -62,6 +65,50 @@ policiesRouter.delete('/:id', (c) => {
   const removed = revokePolicy(id);
   if (!removed) return c.json({ error: `policy "${id}" not found` }, 404);
   return c.json({ revoked: true, id });
+});
+
+// ─── Export / Import ─────────────────────────────────────────────────────────
+
+policiesRouter.get('/export', (c) => {
+  const policies = getActivePolicies();
+  const filename = `sentinel-policies-${new Date().toISOString().slice(0, 10)}.json`;
+  c.header('Content-Disposition', `attachment; filename="${filename}"`);
+  c.header('Content-Type', 'application/json');
+  return c.body(JSON.stringify(policies, null, 2));
+});
+
+policiesRouter.post('/import', async (c) => {
+  let incoming: unknown;
+  try {
+    incoming = await c.req.json();
+  } catch {
+    return c.json({ error: 'invalid JSON body' }, 400);
+  }
+
+  if (!Array.isArray(incoming)) {
+    return c.json({ error: 'body must be a JSON array of policies' }, 400);
+  }
+
+  const adopted: string[] = [];
+  const failed: Array<{ id: unknown; reason: string }> = [];
+
+  for (const item of incoming) {
+    const p = item as Partial<Policy>;
+    if (!p.id || !p.name || !Array.isArray(p.when) || p.when.length === 0) {
+      failed.push({ id: p.id ?? '?', reason: 'missing required fields (id, name, when)' });
+      continue;
+    }
+    const normalized: Policy = {
+      ...p as Policy,
+      enabled: p.enabled !== false,
+      createdAt: p.createdAt ?? Date.now(),
+      source: p.source ?? 'user',
+    };
+    adoptPolicy(normalized);
+    adopted.push(normalized.id);
+  }
+
+  return c.json({ adopted: adopted.length, failed: failed.length, details: { adopted, failed } }, 200);
 });
 
 // ─── Policy Simulator ─────────────────────────────────────────────────────────
@@ -142,6 +189,59 @@ policiesRouter.post('/simulate', async (c) => {
     wouldPause,
     falsePositives,
     matchedEvents: matchedEvents.slice(0, 20), // cap at 20 for response size
+  });
+});
+
+// ─── Natural-language policy authoring ────────────────────────────────────────
+// Proactive flow: user describes a policy in plain English, Opus synthesizes
+// the DSL. The returned policy is NOT adopted automatically — caller should
+// preview it, optionally run /policies/simulate, then POST /policies to adopt.
+
+policiesRouter.post('/synthesize-from-text', async (c) => {
+  let description = '';
+  try {
+    const body = await c.req.json<{ description?: string }>();
+    description = String(body.description ?? '');
+  } catch {
+    return c.json({ error: 'body must be { description: string }' }, 400);
+  }
+
+  if (description.trim().length < 8) {
+    return c.json({ error: 'description is too short' }, 400);
+  }
+
+  try {
+    const result = await synthesizePolicyFromText(description);
+    return c.json({
+      policy: result.policy,
+      rationale: result.rationale,
+      thinkingText: result.thinkingText,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json({ error: message }, 500);
+  }
+});
+
+// ─── Drift audit (Opus meta-audits the policy set) ────────────────────────────
+
+policiesRouter.post('/audit', (c) => {
+  return streamSSE(c, async (stream) => {
+    try {
+      const { response, thinkingText } = await auditPolicies({
+        onThinkingDelta: (delta) => {
+          stream.writeSSE({ event: 'thinking_delta', data: delta }).catch(() => {});
+        },
+      });
+      await stream.writeSSE({ event: 'result', data: JSON.stringify(response) });
+      await stream.writeSSE({
+        event: 'done',
+        data: JSON.stringify({ thinkingTokens: Math.ceil(thinkingText.length / 4) }),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await stream.writeSSE({ event: 'error', data: JSON.stringify({ error: msg }) });
+    }
   });
 });
 

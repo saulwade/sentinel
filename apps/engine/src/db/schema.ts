@@ -1,5 +1,20 @@
 import { sqliteTable, text, integer, uniqueIndex, index } from 'drizzle-orm/sqlite-core';
 
+export const policies = sqliteTable('policies', {
+  id:            text('id').primaryKey(),
+  name:          text('name').notNull(),
+  description:   text('description').notNull().default(''),
+  severity:      text('severity').notNull(),
+  action:        text('action').notNull(),
+  source:        text('source').notNull(),
+  enabled:       integer('enabled', { mode: 'boolean' }).notNull().default(true),
+  reasoning:     text('reasoning'),
+  whenJson:      text('when_json').notNull(),
+  createdAt:     integer('created_at', { mode: 'number' }).notNull(),
+  sourceAttackId: text('source_attack_id'),
+  orgId:         text('org_id').notNull().default('default-org'),
+});
+
 export const runs = sqliteTable('runs', {
   id: text('id').primaryKey(),
   createdAt: integer('created_at', { mode: 'number' }).notNull(),
@@ -8,6 +23,7 @@ export const runs = sqliteTable('runs', {
   agentConfig: text('agent_config').notNull(),
   parentRunId: text('parent_run_id'),
   forkAtSeq: integer('fork_at_seq'),
+  orgId: text('org_id').notNull().default('default-org'),
 });
 
 export const events = sqliteTable(

@@ -6,16 +6,28 @@ import LiveView from "./LiveView";
 import Replay from "./Replay";
 import Preflight from "./Preflight";
 import RedTeam from "./RedTeam";
+import AskOpus from "./AskOpus";
+import OnboardingOverlay from "./OnboardingOverlay";
 
-const TABS = ["Command Center", "Runtime", "Replay", "Pre-flight", "Red Team"] as const;
+const TABS = ["Command Center", "Runtime", "Replay", "Pre-flight", "Red Team", "Ask"] as const;
 type Tab = (typeof TABS)[number];
 
+const TAB_LABELS: Record<Tab, string> = {
+  "Command Center": "Command Center",
+  "Runtime":        "Runtime",
+  "Replay":         "Investigate",
+  "Pre-flight":     "Test Before Deploy",
+  "Red Team":       "Stress Test & Policies",
+  "Ask":            "Ask Opus",
+};
+
 const TAB_SUBTITLES: Record<Tab, string> = {
-  "Command Center": "Trust Score · Stats · Policy overview",
-  "Runtime":        "Live interception · Pre-cog · Approve/Deny",
-  "Replay":         "Timeline scrubber · Fork · Opus analysis",
-  "Pre-flight":     "Synthetic scenario simulator · Safety grade",
-  "Red Team":       "Adaptive attacker · Policy synthesis · Catalog",
+  "Command Center": "Trust Score, policy stats, and agent fleet overview",
+  "Runtime":        "Watch agents run in real-time — Sentinel intercepts every action",
+  "Replay":         "Investigate past incidents, scrub the timeline, and adopt hardening policies",
+  "Pre-flight":     "Simulate attack scenarios before deploying your agent to verify it's safe",
+  "Red Team":       "Run adaptive adversarial attacks and synthesize new security policies from bypasses",
+  "Ask":            "Ask Sentinel anything — Opus 4.7 answers grounded in your full operational history",
 };
 
 // ─── Help modal ───────────────────────────────────────────────────────────────
@@ -33,7 +45,7 @@ function HelpModal({ onClose }: { onClose: () => void }) {
     {
       label: "Navigation",
       shortcuts: [
-        { keys: ["1", "2", "3", "4", "5"], desc: "Switch tabs" },
+        { keys: ["1", "2", "3", "4", "5", "6"], desc: "Switch tabs" },
         { keys: ["?"], desc: "Toggle this help" },
         { keys: ["Esc"], desc: "Close modal / clear search" },
       ],
@@ -122,18 +134,82 @@ export default function Shell() {
   const [activeTab, setActiveTab] = useState<Tab>("Command Center");
   const [runId, setRunId] = useState<string | null>(null);
   const [agentLabel, setAgentLabel] = useState<string>("Sentinel Agent");
+  const [taskDescription, setTaskDescription] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [pendingRun, setPendingRun] = useState(false);
+  const [pendingScenario, setPendingScenario] = useState<string | null>(null);
+  const [externalRunId, setExternalRunId] = useState<string | null>(null);
+  const [autoAnalyze, setAutoAnalyze] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [executive, setExecutive] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
-  const handleRunStarted = useCallback((id: string, label?: string) => {
+  async function handleReset() {
+    setResetting(true);
+    try {
+      await fetch("http://localhost:3001/admin/reset", { method: "POST" });
+      setRunId(null);
+      setAgentLabel("Sentinel Agent");
+      setTaskDescription(null);
+      setPendingRun(false);
+      setPendingScenario(null);
+      setExternalRunId(null);
+    } finally {
+      setResetting(false);
+      setShowResetConfirm(false);
+    }
+  }
+
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem("sentinel_onboarding_seen")) setShowOnboarding(true);
+      if (localStorage.getItem("sentinel_view_mode") === "executive") setExecutive(true);
+    } catch {}
+  }, []);
+
+  const toggleExecutive = useCallback(() => {
+    setExecutive((v) => {
+      const next = !v;
+      try { localStorage.setItem("sentinel_view_mode", next ? "executive" : "technical"); } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleRunStarted = useCallback((id: string, label?: string, task?: string) => {
     setRunId(id);
     if (label) setAgentLabel(label);
+    if (task) setTaskDescription(task);
+  }, []);
+
+  const handleAutoDemoNavigate = useCallback((tab: string) => {
+    setActiveTab(tab as Tab);
+    if (tab === "Replay") setAutoAnalyze(true);
+  }, []);
+
+  const handleOnboardingStart = useCallback(() => {
+    setShowOnboarding(false);
+    try { localStorage.setItem("sentinel_onboarding_seen", "1"); } catch {}
+    setPendingScenario("ceo");
+    setPendingRun(true);
+    setActiveTab("Runtime");
+  }, []);
+
+  const handleOnboardingSkip = useCallback(() => {
+    setShowOnboarding(false);
+    try { localStorage.setItem("sentinel_onboarding_seen", "1"); } catch {}
   }, []);
 
   const handleRequestRun = useCallback(() => {
     setPendingRun(true);
     setActiveTab("Runtime");
   }, []);
+
+  const handleLaunchedCustomRun = useCallback((runId: string, label: string, task: string) => {
+    handleRunStarted(runId, label, task);
+    setExternalRunId(runId);
+    setActiveTab("Runtime");
+  }, [handleRunStarted]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -157,6 +233,9 @@ export default function Shell() {
   return (
     <div className="flex flex-col h-screen" style={{ background: "#0A0A0D" }}>
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+      {showOnboarding && (
+        <OnboardingOverlay onStartDemo={handleOnboardingStart} onSkip={handleOnboardingSkip} />
+      )}
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div
@@ -197,13 +276,41 @@ export default function Shell() {
               }}
             >
               <span className="opacity-40 mr-1">{i + 1}</span>
-              {tab === "Red Team" ? "Red Team & Policies" : tab}
+              {TAB_LABELS[tab]}
             </button>
           );
         })}
 
         {/* Agent context + help hint */}
         <div className="ml-auto flex items-center gap-3">
+          <div
+            className="flex rounded overflow-hidden shrink-0"
+            style={{ border: "1px solid #262630" }}
+            title="Switch between technical detail and an exec-friendly overview"
+          >
+            <button
+              onClick={() => executive && toggleExecutive()}
+              className="px-2 py-0.5 text-[10px] font-mono transition-all"
+              style={{
+                background: !executive ? "#1C1C24" : "transparent",
+                color: !executive ? "#F5F5F7" : "#8A8A93",
+                fontWeight: !executive ? 600 : 400,
+              }}
+            >
+              Technical
+            </button>
+            <button
+              onClick={() => !executive && toggleExecutive()}
+              className="px-2 py-0.5 text-[10px] font-mono transition-all"
+              style={{
+                background: executive ? "#6B4EEA" : "transparent",
+                color: executive ? "#0A0A0D" : "#8A8A93",
+                fontWeight: executive ? 600 : 400,
+              }}
+            >
+              Executive
+            </button>
+          </div>
           {runId && (
             <>
               <span className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ color: "#8A8A93", background: "#14141A" }}>
@@ -213,6 +320,35 @@ export default function Shell() {
                 {runId.slice(0, 8)}
               </span>
             </>
+          )}
+          {showResetConfirm ? (
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-mono" style={{ color: "#F7B955" }}>Reset demo?</span>
+              <button
+                onClick={handleReset}
+                disabled={resetting}
+                className="font-mono text-[10px] px-2 py-0.5 rounded transition-all hover:brightness-110 disabled:opacity-50"
+                style={{ background: "#FF5A5A", color: "#0A0A0D" }}
+              >
+                {resetting ? "…" : "Yes"}
+              </button>
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="font-mono text-[10px] px-2 py-0.5 rounded transition-all hover:brightness-110"
+                style={{ background: "#1C1C24", color: "#8A8A93", border: "1px solid #262630" }}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowResetConfirm(true)}
+              className="font-mono text-[10px] px-1.5 py-0.5 rounded transition-all hover:brightness-150"
+              style={{ color: "#8A8A93", background: "#14141A", border: "1px solid #262630" }}
+              title="Clear all runs and reset policies to defaults"
+            >
+              ↺ Reset
+            </button>
           )}
           <button
             onClick={() => setShowHelp(true)}
@@ -235,7 +371,7 @@ export default function Shell() {
             Task
           </span>
           <span className="text-xs font-mono" style={{ color: "#F5F5F7" }}>
-            &quot;Process all open support tickets&quot;
+            &quot;{taskDescription ?? "Process agent tasks"}&quot;
           </span>
           <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>
             7 tools: lookup_customer_detail, apply_refund, update_ticket, send_email, post_slack…
@@ -258,18 +394,34 @@ export default function Shell() {
               <CommandCenter
                 onNavigate={(t) => setActiveTab(t as Tab)}
                 onRequestRun={handleRequestRun}
+                executive={executive}
               />
             )}
             {tab === "Runtime" && (
               <LiveView
                 onRunStarted={handleRunStarted}
+                onNavigate={handleAutoDemoNavigate}
                 pendingRun={pendingRun}
                 onPendingRunConsumed={() => setPendingRun(false)}
+                pendingScenario={pendingScenario}
+                onPendingScenarioConsumed={() => setPendingScenario(null)}
+                executive={executive}
+                externalRunId={externalRunId}
+                onExternalRunConsumed={() => setExternalRunId(null)}
               />
             )}
-            {tab === "Replay" && <Replay runId={runId} visible={activeTab === "Replay"} />}
-            {tab === "Pre-flight" && <Preflight />}
+            {tab === "Replay" && (
+              <Replay
+                runId={runId}
+                visible={activeTab === "Replay"}
+                autoAnalyze={autoAnalyze}
+                onAutoAnalyzeConsumed={() => setAutoAnalyze(false)}
+                onNavigate={(t) => setActiveTab(t as Tab)}
+              />
+            )}
+            {tab === "Pre-flight" && <Preflight onLaunchedCustomRun={handleLaunchedCustomRun} />}
             {tab === "Red Team" && <RedTeam />}
+            {tab === "Ask" && <AskOpus />}
           </div>
         ))}
       </div>

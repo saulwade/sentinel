@@ -16,6 +16,7 @@ runsRouter.post('/start', async (c) => {
     if (body.scenario === 'phishing') scenario = 'phishing';
     else if (body.scenario === 'ceo') scenario = 'ceo';
     else if (body.scenario === 'gdpr') scenario = 'gdpr';
+    else if (body.scenario === 'multi-agent') scenario = 'multi-agent';
   } catch {}
   const run = await startRun(mode, scenario);
   return c.json(run, 201);
