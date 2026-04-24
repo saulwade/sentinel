@@ -1,16 +1,16 @@
 <div align="center">
 
-<!-- Replace with your actual demo GIF — record a 30-second screen capture of the CEO Override run -->
-<!-- Tools: QuickTime → File → New Screen Recording, then convert with ffmpeg or Gifski -->
-<!-- ![Sentinel Demo](./docs/screenshots/demo.gif) -->
-
 # SENTINEL
 
 ### AI Agent Security Platform
 
 **Stop attacks before they execute.** Sentinel sits between your AI agent and its tools — intercepting every action, enforcing policies, and letting Opus 4.7 reason about the causal chain before anything irreversible happens.
 
+### 🔗 [**Live demo → sentinel-web-theta.vercel.app**](https://sentinel-web-theta.vercel.app)
+
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Online-2DD4A4?style=flat-square)](https://sentinel-web-theta.vercel.app)
 [![Built with Opus 4.7](https://img.shields.io/badge/Built%20with-Opus%204.7-A78BFA?style=flat-square&logo=anthropic&logoColor=white)](https://www.anthropic.com)
+[![Deployed on Fly.io + Vercel](https://img.shields.io/badge/Deployed-Fly.io%20%2B%20Vercel-8A8A93?style=flat-square)](https://sentinel-engine.fly.dev/health)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)](https://nextjs.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](./LICENSE)
@@ -18,6 +18,10 @@
 *Built for the [Built with Opus 4.7 Hackathon](https://cerebralvalley.ai/e/built-with-4-7-hackathon) · by [@saulwade](https://github.com/saulwade)*
 
 </div>
+
+---
+
+**Jump to:** [The problem](#the-problem) · [What it does](#what-it-does) · [Demo](#demo) · [Six views](#six-views-one-platform) · [How Opus reasons](#ten-ways-opus-47-reasons-about-your-security) · [Quick start](#quick-start) · [MCP integration](#mcp-integration-claude-desktop--claude-code) · [Deployment](#deployment) · [Architecture](#architecture)
 
 ---
 
@@ -69,7 +73,7 @@ Then it shows you exactly what happened, what would have happened without it, an
 
 **The Trust Score starts at D.** That's intentional — you haven't been attacked yet, so you haven't built defenses. Run the demo, adopt synthesized policies, and watch it climb to A+. Security posture, quantified in real time.
 
-**Three live attack scenarios** against a Customer Support Agent with access to customer PII, refund processing, and email sending:
+**Four live attack scenarios** against agents with access to customer PII, refund processing, and email sending:
 
 | Scenario | Attack vector | What Sentinel stops |
 |---|---|---|
@@ -77,6 +81,8 @@ Then it shows you exactly what happened, what would have happened without it, an
 | **Support Agent** | Compliance audit framing — bulk PII exfiltration | $47k unauthorized refund + 847 customer records |
 | **GDPR Audit** | Legal urgency framing — GDPR Art. 20 data portability | $8.5k processing fee + unfiltered customer dump |
 | **Multi-Agent** | Compromised subagent injects malicious tool call | Cross-agent trust violation caught at orchestrator |
+
+Run any scenario in three modes: **Scenario** (scripted for reliable demos), **Live Agent** (Claude Haiku 4.5 autonomously processing the queue — it genuinely falls for the injection), or **Fleet** (three scenarios concurrently on a 3-panel dashboard).
 
 ---
 
@@ -96,6 +102,11 @@ Watch the attack unfold in real-time. Each tool call surfaces with its verdict s
 
 Press `A` to approve a paused action, `D` to deny. The screen flashes red on a block.
 
+**Three execution modes:**
+- **Scenario** — scripted attack flow, deterministic for reliable demos
+- **Live Agent** — real Claude Haiku 4.5 agent decides what to do, reads the ticket queue, and actually falls for the prompt injection (Sentinel catches it anyway)
+- **Fleet** — three scenarios (Support · CEO · GDPR) run concurrently in a 3-panel dashboard with per-agent PAUSE/BLOCK flashing and live interdiction counters
+
 ### 3 · Investigate — Timeline + Fork
 <!-- SCREENSHOT: Replay showing timeline scrubber at event #5, world state sidebar with customer records visible, blast radius grid -->
 Scrub through every event. At any step, edit the world state and branch — Sentinel runs the alternate timeline and compares blast radius side-by-side. Then generate a full incident report with one click.
@@ -107,6 +118,14 @@ Before you ship your agent, simulate 30 days of synthetic scenarios — safe, ed
 ### 5 · Stress Test & Policies
 <!-- SCREENSHOT: Red Team showing 3 iterations of adaptive attacks, bypassed attack with "Synthesize Policy" button highlighted -->
 Run an adaptive red team that mutates with each iteration — seeing your defenses, adapting its strategy. When a bypass lands, one click synthesizes a new DSL policy from the attack. The policy catalog shows every rule with its source: `DEFAULT` or `AUTO · from attack_id`.
+
+**Arena mode (showpiece):** toggle to **Arena** and watch two Opus 4.7 instances fight live — split-screen thinking streams with 🔴 Red Opus generating novel attacks on the left and 🔵 Blue Opus synthesizing counter-policies on the right. Five rounds. Trust Score arcs from F to A+ in the header as the defense teaches itself.
+
+**Also here:**
+- **Author Policy** — describe a policy in plain English, Opus synthesizes valid DSL
+- **Policy Simulator** — run any candidate policy against full run history to check for false positives before adopting
+- **Drift Detector** — Opus audits the active policy set for redundancy, blind spots, and dead code
+- **Retroactive Surgery** — on a run that required Opus to catch a bypass, Opus generates a deterministic policy that would have blocked it, validated against all historical runs for zero false positives
 
 ### 6 · Ask Opus — Your AI CISO
 <!-- SCREENSHOT: Ask Opus showing a question answered with evidence panel linking to specific run events -->
@@ -120,7 +139,7 @@ Also available directly in Claude Desktop via MCP — see [MCP integration](#mcp
 
 ---
 
-## Nine ways Opus 4.7 reasons about your security
+## Ten ways Opus 4.7 reasons about your security
 
 This is not "call Claude for summaries." Every Opus invocation uses **extended thinking** and streams live to the UI.
 
@@ -160,7 +179,7 @@ Open **[http://localhost:3000](http://localhost:3000)** and click **▶ Start De
 
 **Requirements:** Node 22+, pnpm 9+, Anthropic API key with Opus 4.7 access.
 
-### 60-second demo flow
+### 3-minute demo flow
 
 1. **Command Center** — see the Trust Score ring and empty state
 2. **Runtime** → select CEO Override → toggle PRE-COMPUTED → **▶ Run**
@@ -212,7 +231,7 @@ In Claude Code, ask: *"List the Sentinel MCP tools"* — you should see the 7 to
 
 > Note: `/stats/mcp-status` in the web UI reports `registered` — that's the capability manifest, not a live connection health check. The MCP server spawns per-client via stdio, so HTTP can't observe it directly.
 
-**Available tools:**
+**Available tools (7):**
 
 | Tool | What it does |
 |---|---|
@@ -221,6 +240,7 @@ In Claude Code, ask: *"List the Sentinel MCP tools"* — you should see the 7 to
 | `sentinel_get_blast_radius` | Money blocked, PII intercepted, severity grade |
 | `sentinel_get_policies` | Active policies with action, severity, source |
 | `sentinel_get_trust_score` | Composite Trust Score (A+ to F) across all runs |
+| `sentinel_snapshot` | World state at any sequence number — time-travel debugging |
 | `sentinel_list_agent_tools` | Agent's tools in MCP schema format |
 
 ---
@@ -237,27 +257,28 @@ Sentinel is split across two hosts because the engine needs a persistent SQLite 
 
 ### Engine → Fly.io (~15 min first time)
 
+> `fly.toml` lives at the repo root so the Docker build context matches the pnpm workspace. Run all `flyctl` commands from the root.
+
 ```bash
 # 1. Install and authenticate
 brew install flyctl
 flyctl auth login
 
-# 2. Launch the app (uses apps/engine/fly.toml, doesn't deploy yet)
-flyctl launch --no-deploy --config apps/engine/fly.toml --copy-config
+# 2. Launch the app (uses ./fly.toml, doesn't deploy yet)
+flyctl launch --no-deploy --copy-config
 
 # 3. Create the SQLite volume (same region as the app)
-flyctl volumes create sentinel_data --size 1 --region dfw --config apps/engine/fly.toml
+flyctl volumes create sentinel_data --size 1 --region dfw
 
-# 4. Set secrets (values NOT committed)
-flyctl secrets set \
-  ANTHROPIC_API_KEY=sk-ant-... \
-  ADMIN_TOKEN=$(openssl rand -hex 16) \
-  ALLOWED_ORIGINS=https://localhost:3000 \
-  --config apps/engine/fly.toml
-# → ALLOWED_ORIGINS gets updated after Vercel is live (step 7)
+# 4. Set secrets (values NOT committed).
+#    The KEY/TOKEN variable pattern avoids exposing the key in shell history.
+KEY=$(grep '^ANTHROPIC_API_KEY=' apps/engine/.env | cut -d= -f2-)
+TOKEN=$(openssl rand -hex 16)
+flyctl secrets set ANTHROPIC_API_KEY="$KEY" ADMIN_TOKEN="$TOKEN" ALLOWED_ORIGINS="https://localhost:3000"
+# → ALLOWED_ORIGINS gets updated after Vercel is live (Wire CORS step below)
 
 # 5. Deploy
-flyctl deploy --config apps/engine/fly.toml
+flyctl deploy
 
 # 6. Verify
 curl https://sentinel-engine.fly.dev/health
@@ -268,17 +289,17 @@ curl https://sentinel-engine.fly.dev/health
 
 1. Push the repo to GitHub
 2. On [vercel.com](https://vercel.com) → Add New → Project → import the repo
-3. Framework preset auto-detects Next.js. **Set root directory to `apps/web`.**
+3. Framework preset auto-detects Next.js. **Set root directory to `apps/web`.** (Important — without this, Vercel tries to build the engine and fails.)
 4. Environment Variables:
    - `NEXT_PUBLIC_ENGINE_URL` = `https://sentinel-engine.fly.dev` (URL from step 6 above)
-5. Deploy → note the production URL (e.g. `https://sentinel-abcd.vercel.app`)
+5. Deploy → note the production URL (e.g. `https://sentinel-web-theta.vercel.app`)
 
 ### Wire CORS (~1 min)
 
 Point the engine at the real Vercel URL:
 
 ```bash
-flyctl secrets set ALLOWED_ORIGINS=https://sentinel-abcd.vercel.app --config apps/engine/fly.toml
+flyctl secrets set ALLOWED_ORIGINS=https://sentinel-web-theta.vercel.app
 # Fly auto-redeploys on secret change
 ```
 
@@ -286,8 +307,10 @@ Reload the Vercel URL. The "LIVE" pill in the header should turn green within 10
 
 ### Reset state during the demo
 
-- **Locally:** `rm apps/engine/data/sentinel.db && pnpm -F @sentinel/engine dev` (schema auto-recreates on boot)
-- **Remotely:** `curl -X POST https://sentinel-engine.fly.dev/admin/reset -H "x-admin-token: $ADMIN_TOKEN"` — wipes runs/events, reseeds default policies, keeps the volume
+Both paths wipe runs + events, reseed default policies, and also clear the in-memory registries — so no zombie runs after the reset.
+
+- **Locally:** `curl -X POST http://localhost:3001/admin/reset -H "x-admin-token: $ADMIN_TOKEN"` (or drop the header if `ADMIN_TOKEN` is unset in `apps/engine/.env`)
+- **Remotely:** `curl -X POST https://sentinel-engine.fly.dev/admin/reset -H "x-admin-token: $ADMIN_TOKEN"` — the token is whatever you set when running `flyctl secrets set ADMIN_TOKEN=...`
 
 ### Things that will surprise you on first deploy
 
@@ -378,8 +401,11 @@ Sentinel gives agent developers the debugging primitives that should have existe
 - **Quantify** damage prevented in dollars, records, and data classes
 - **Test** adversarially before shipping, not after the breach
 - **Learn** — every attack auto-generates a policy that blocks its variants forever
+- **Evolve** — two Opus instances fight in the Arena, attacks mutate, defenses synthesize, and the system's security posture visibly improves in minutes
 
 The Pre-cog layer is what makes this different: Opus doesn't just classify the action, it simulates the causal chain. It catches attacks that no rule could have anticipated, and it explains exactly why in language a human can understand.
+
+And this isn't a mock. Flip to **Live Agent** mode and a real Claude Haiku 4.5 agent processes the ticket queue autonomously — including the one with the prompt injection. Sentinel catches it anyway.
 
 This is a new category of developer tooling. It exists because of what Opus 4.7 can do.
 
