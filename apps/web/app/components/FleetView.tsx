@@ -79,6 +79,7 @@ function FleetCard({ agent }: { agent: FleetAgent }) {
   const [attackType, setAttackType] = useState<string | null>(null);
   const [interdictions, setInterdictions] = useState(0);
   const [moneyBlocked, setMoneyBlocked] = useState(0);
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
@@ -262,20 +263,79 @@ function FleetCard({ agent }: { agent: FleetAgent }) {
           const p = ev.payload as Record<string, unknown>;
           if (isDecision) {
             const verdict = String(p.verdict ?? "");
+            const reasoning = String(p.reasoning ?? "");
+            const riskSignals = (p.riskSignals as string[]) ?? [];
+            const source = String(p.source ?? "pre-cog");
+            const atk = attackLabel(riskSignals);
+            const isExpanded = expandedEventId === ev.id;
+            const isInteresting = verdict !== "ALLOW";
             return (
-              <div key={ev.id} className="flex items-center gap-1.5 py-0.5">
-                <span
-                  className="text-[9px] font-mono font-bold px-1 py-0 rounded shrink-0"
-                  style={{
-                    color: verdictColor(verdict),
-                    background: `${verdictColor(verdict)}15`,
-                  }}
+              <div key={ev.id}>
+                <button
+                  type="button"
+                  onClick={() => setExpandedEventId(isExpanded ? null : ev.id)}
+                  title={isInteresting ? "Click for full reasoning + attack details" : "Click to expand"}
+                  className="w-full flex items-center gap-1.5 py-0.5 rounded px-1 transition-colors duration-150 hover:bg-[#14141A] cursor-pointer text-left"
                 >
-                  {verdict}
-                </span>
-                <span className="text-[9px] font-mono truncate" style={{ color: "#8A8A93" }}>
-                  {String(p.reasoning ?? "").slice(0, 60)}
-                </span>
+                  <span
+                    className="text-[9px] font-mono font-bold px-1 py-0 rounded shrink-0"
+                    style={{
+                      color: verdictColor(verdict),
+                      background: `${verdictColor(verdict)}15`,
+                    }}
+                  >
+                    {verdict}
+                  </span>
+                  <span className="text-[9px] font-mono truncate flex-1" style={{ color: "#8A8A93" }}>
+                    {reasoning.slice(0, 60)}
+                  </span>
+                  <span className="text-[9px] font-mono shrink-0" style={{ color: "#6B6B75" }}>
+                    {isExpanded ? "▾" : "›"}
+                  </span>
+                </button>
+                {isExpanded && (
+                  <div
+                    className="mt-1 mb-1 p-2 rounded space-y-1.5 animate-slide-up"
+                    style={{ background: "#0D0D12", border: "1px solid #262630" }}
+                  >
+                    {atk && isInteresting && (
+                      <span
+                        className="inline-block text-[9px] font-mono font-bold px-1.5 py-0.5 rounded"
+                        style={{ background: "rgba(255,90,90,0.12)", color: "#FF5A5A", border: "1px solid rgba(255,90,90,0.3)" }}
+                      >
+                        ⚡ {atk.toUpperCase()}
+                      </span>
+                    )}
+                    <p className="text-[10px] font-mono leading-relaxed" style={{ color: "#F5F5F7" }}>
+                      {reasoning}
+                    </p>
+                    {riskSignals.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {riskSignals
+                          .filter((r) => !r.startsWith("policy:"))
+                          .map((r) => (
+                            <span
+                              key={r}
+                              className="text-[8px] font-mono px-1 py-0.5 rounded"
+                              style={{ background: "rgba(138,138,147,0.1)", color: "#8A8A93", border: "1px solid rgba(138,138,147,0.2)" }}
+                            >
+                              {RISK_SIGNAL_LABELS[r] ?? r.replace(/_/g, " ")}
+                            </span>
+                          ))}
+                      </div>
+                    )}
+                    <span
+                      className="inline-block text-[8px] font-mono font-bold px-1 py-0.5 rounded"
+                      style={{
+                        background: source === "policy" ? "rgba(99,102,241,0.15)" : "rgba(167,139,250,0.12)",
+                        color: source === "policy" ? "#818CF8" : "#A78BFA",
+                        border: `1px solid ${source === "policy" ? "rgba(99,102,241,0.3)" : "rgba(167,139,250,0.2)"}`,
+                      }}
+                    >
+                      {source === "policy" ? "POLICY" : "OPUS"}
+                    </span>
+                  </div>
+                )}
               </div>
             );
           }

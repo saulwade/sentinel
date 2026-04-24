@@ -4,7 +4,7 @@
  * Console output is intentional (visible before interceptor exists).
  */
 
-import { getWorld, type Customer, type SentEmail, type SlackMessage, type RefundRecord } from './world.js';
+import { getWorld, type Customer, type SentEmail, type SlackMessage, type RefundRecord, type Ticket } from './world.js';
 import { debug } from '../log.js';
 
 // ─── read_email ──────────────────────────────────────────────────────────────
@@ -134,6 +134,22 @@ export function apply_refund(args: ApplyRefundArgs): { success: boolean; refundI
   return { success: true, refundId: refund.id, newBalance: customer.balance };
 }
 
+// ─── read_ticket ──────────────────────────────────────────────────────────────
+
+export interface ReadTicketArgs {
+  ticket_id: string;
+}
+
+export function read_ticket(args: ReadTicketArgs): Ticket | { error: string } {
+  const ticket = getWorld().tickets.find((t) => t.id === args.ticket_id);
+  if (!ticket) {
+    debug(`[tool] read_ticket(${args.ticket_id}) → ERROR: not found`);
+    return { error: `ticket ${args.ticket_id} not found` };
+  }
+  debug(`[tool] read_ticket(${args.ticket_id}) → "${ticket.subject}"`);
+  return ticket;
+}
+
 // ─── update_ticket ────────────────────────────────────────────────────────────
 
 export interface UpdateTicketArgs {
@@ -259,6 +275,7 @@ export type ToolName =
   | 'post_slack'
   | 'lookup_customer_detail'
   | 'apply_refund'
+  | 'read_ticket'
   | 'update_ticket'
   | 'delegate_to_specialist'
   | 'execute_agent_recommendation';
@@ -270,6 +287,7 @@ export const TOOLS = {
   post_slack,
   lookup_customer_detail,
   apply_refund,
+  read_ticket,
   update_ticket,
   delegate_to_specialist,
   execute_agent_recommendation,

@@ -1122,11 +1122,14 @@ export default function LiveView({
               const label = eventLabel(ev).toLowerCase();
               const payload = JSON.stringify(ev.payload).toLowerCase();
               return label.includes(q) || payload.includes(q);
-            }).map((ev, i) => (
+            }).map((ev, i) => {
+              const isInterestingDecision = isDecision(ev) && (ev.payload as unknown as DecisionPayload).verdict !== 'ALLOW';
+              return (
               <button
                 key={`${ev.id}-${ev.seq}`}
                 onClick={() => setSelected(ev)}
-                className="w-full text-left flex items-center gap-3 px-4 py-2 border-b transition-all duration-150 hover:bg-[#14141A] animate-slide-up"
+                title={isInterestingDecision ? "Click to inspect — see attack details and counterfactual" : undefined}
+                className="group w-full text-left flex items-center gap-3 px-4 py-2 border-b transition-all duration-150 hover:bg-[#14141A] cursor-pointer animate-slide-up"
                 style={{
                   borderColor: "#1C1C24",
                   background: selected?.id === ev.id ? "#1C1C24" : undefined,
@@ -1197,8 +1200,18 @@ export default function LiveView({
                     </div>
                   );
                 })()}
+                {isInterestingDecision && (
+                  <span
+                    className="text-[11px] font-mono shrink-0 transition-all duration-150 group-hover:translate-x-0.5"
+                    style={{ color: selected?.id === ev.id ? "#A78BFA" : "#6B6B75" }}
+                    aria-hidden="true"
+                  >
+                    Inspect ›
+                  </span>
+                )}
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 
