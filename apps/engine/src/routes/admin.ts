@@ -9,6 +9,7 @@ import { db } from '../db/client.js';
 import { runs as runsTable, events as eventsTable, policies as policiesTable } from '../db/schema.js';
 import { setActivePolicies, loadPoliciesFromDb } from '../interceptor.js';
 import { DEFAULT_POLICIES } from '../policies/defaults.js';
+import { clearRuns } from '../agent/runner.js';
 import { eq, ne } from 'drizzle-orm';
 
 export const adminRouter = new Hono();
@@ -21,9 +22,10 @@ adminRouter.post('/reset', (c) => {
       return c.json({ error: 'unauthorized' }, 401);
     }
   }
-  // Wipe all events and runs
+  // Wipe all events and runs — DB + in-memory registry
   db.delete(eventsTable).run();
   db.delete(runsTable).run();
+  clearRuns();
 
   // Keep default policies, remove user-added/synthesized ones
   db.delete(policiesTable)

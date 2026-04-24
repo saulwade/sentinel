@@ -100,13 +100,11 @@ function timeAgo(ts: number) {
 function RunSparkline({ runs }: { runs: RunSummary[] }) {
   if (runs.length === 0) return null;
   const pts = runs.slice().reverse().slice(0, 20);
-  const W = 120, H = 28, gap = 4;
-  const barW = Math.max(3, Math.floor((W - gap * (pts.length - 1)) / pts.length));
+  const W = 72, H = 20, gap = 3;
+  const barW = Math.max(2, Math.floor((W - gap * (pts.length - 1)) / pts.length));
+  const blocked = pts.filter((r) => (r.blast?.actionsInterdicted ?? 0) > 0).length;
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-[9px] font-mono uppercase tracking-widest shrink-0" style={{ color: "#8A8A93" }}>
-        Last {pts.length} runs
-      </span>
+    <div className="flex items-center gap-2 min-w-0">
       <svg width={W} height={H} className="shrink-0">
         {pts.map((r, i) => {
           const interdicted = (r.blast?.actionsInterdicted ?? 0) > 0;
@@ -126,8 +124,8 @@ function RunSparkline({ runs }: { runs: RunSummary[] }) {
           );
         })}
       </svg>
-      <span className="text-[9px] font-mono" style={{ color: "#2DD4A4" }}>
-        {pts.filter((r) => (r.blast?.actionsInterdicted ?? 0) > 0).length} blocked
+      <span className="text-[9px] font-mono truncate" style={{ color: "#2DD4A4" }}>
+        {blocked} blocked
       </span>
     </div>
   );
@@ -138,20 +136,20 @@ function StatCard({
 }: { label: string; value: string; sub?: string; accent?: string; hero?: boolean }) {
   return (
     <div
-      className="flex flex-col gap-1 p-4 rounded-lg"
+      className="flex flex-col gap-1 p-4 rounded-lg min-w-0 overflow-hidden"
       style={{
         background: hero ? "rgba(255,90,90,0.04)" : "#0D0D12",
         border: `1px solid ${hero ? "rgba(255,90,90,0.25)" : "#262630"}`,
       }}
     >
-      <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: hero ? "#FF5A5A" : "#8A8A93", opacity: hero ? 0.7 : 1 }}>
+      <span className="text-[10px] font-mono uppercase tracking-widest truncate" style={{ color: hero ? "#FF5A5A" : "#8A8A93", opacity: hero ? 0.7 : 1 }}>
         {label}
       </span>
-      <span className={`${hero ? "text-3xl" : "text-2xl"} font-mono font-bold`} style={{ color: accent ?? "#F5F5F7" }}>
+      <span className={`${hero ? "text-3xl" : "text-2xl"} font-mono font-bold truncate`} style={{ color: accent ?? "#F5F5F7" }}>
         {value}
       </span>
       {sub && (
-        <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>
+        <span className="text-[10px] font-mono truncate" style={{ color: "#8A8A93" }} title={sub}>
           {sub}
         </span>
       )}
@@ -410,15 +408,15 @@ export default function CommandCenter({ onNavigate, onRequestRun, executive = fa
             sub={stats && !executive ? `${stats.policies.bySource.autoSynthesized} auto-synthesized` : executive && stats ? "protecting production" : undefined}
             accent="#818CF8"
           />
-          <div className="flex flex-col gap-1 p-4 rounded-lg" style={{ background: "#0D0D12", border: "1px solid #262630" }}>
-            <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
+          <div className="flex flex-col gap-1 p-4 rounded-lg min-w-0 overflow-hidden" style={{ background: "#0D0D12", border: "1px solid #262630" }}>
+            <span className="text-[10px] font-mono uppercase tracking-widest truncate" style={{ color: "#8A8A93" }}>
               {executive ? "Agent Sessions" : "Total runs"}
             </span>
-            <span className="text-2xl font-mono font-bold" style={{ color: "#F5F5F7" }}>
+            <span className="text-2xl font-mono font-bold truncate" style={{ color: "#F5F5F7" }}>
               {stats?.runs.total ?? "—"}
             </span>
             {stats?.runs.recent[0] && (
-              <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>
+              <span className="text-[10px] font-mono truncate" style={{ color: "#8A8A93" }}>
                 {timeAgo(stats.runs.recent[0].createdAt)}
               </span>
             )}

@@ -34,6 +34,11 @@ export function getAllRuns(): Run[] {
   return [...runs.values()].sort((a, b) => b.createdAt - a.createdAt);
 }
 
+/** Wipe the in-memory run registry. Paired with DB clear in admin/reset. */
+export function clearRuns(): void {
+  runs.clear();
+}
+
 /** Hydrate the in-memory run registry from SQLite at engine startup.
  *  Without this, restarting the engine wipes the in-memory Map even though
  *  all runs are persisted — stats, analysis, and Ask would show empty state. */

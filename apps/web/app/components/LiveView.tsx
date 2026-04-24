@@ -583,6 +583,10 @@ export default function LiveView({
   // Keyboard shortcuts
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      // Ignore when user hits a browser shortcut (Cmd+R, Ctrl+R, Alt+...).
+      // Otherwise Cmd+R fires `r` keydown before the reload, triggering startRun.
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
       // Search input: handle Esc to close
       if (e.target instanceof HTMLInputElement) {
         if (e.key === "Escape") {

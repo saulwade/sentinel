@@ -274,6 +274,7 @@ export default function Shell() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
       // Tab switching: 1-5
       const idx = Number(e.key) - 1;

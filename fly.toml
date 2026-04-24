@@ -1,0 +1,40 @@
+# fly.toml app configuration file generated for sentinel-engine on 2026-04-23T18:19:24-06:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'sentinel-engine'
+primary_region = 'dfw'
+
+[build]
+  dockerfile = 'apps/engine/Dockerfile'
+
+[env]
+  DB_PATH = '/data/sentinel.db'
+  NODE_ENV = 'production'
+  PORT = '3001'
+
+[[mounts]]
+  source = 'sentinel_data'
+  destination = '/data'
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = 'suspend'
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '20s'
+    method = 'GET'
+    path = '/health'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 512
