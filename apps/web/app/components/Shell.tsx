@@ -153,16 +153,36 @@ export default function Shell() {
     setResetting(true);
     try {
       const adminToken = process.env.NEXT_PUBLIC_ADMIN_TOKEN;
-      await fetch(`${ENGINE}/admin/reset`, {
+      const res = await fetch(`${ENGINE}/admin/reset`, {
         method: "POST",
         headers: adminToken ? { "x-admin-token": adminToken } : undefined,
       });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        if (res.status === 401) {
+          emitToast({
+            kind: "error",
+            message: "Reset blocked — NEXT_PUBLIC_ADMIN_TOKEN is missing on the web host. Add it in Vercel → Settings → Environment Variables, using the same value as the ADMIN_TOKEN secret on Fly.",
+          });
+        } else {
+          emitToast({ kind: "error", message: `Reset failed (${res.status}): ${body.slice(0, 200)}` });
+        }
+        return;
+      }
       setRunId(null);
       setAgentLabel("Sentinel Agent");
       setTaskDescription(null);
       setPendingRun(false);
       setPendingScenario(null);
       setExternalRunId(null);
+      emitToast({ kind: "info", message: "Demo state reset — runs cleared, defaults restored" });
+      // Force any tab's subscriptions to reset cleanly
+      setTimeout(() => window.location.reload(), 400);
+    } catch (err) {
+      emitToast({
+        kind: "error",
+        message: `Reset failed: ${err instanceof Error ? err.message : "network error"}`,
+      });
     } finally {
       setResetting(false);
       setShowResetConfirm(false);
