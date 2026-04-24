@@ -12,7 +12,7 @@ import type { Customer, Email, Ticket } from '../world.js';
 import { resetWorld } from '../world.js';
 import type { ToolName } from '../tools.js';
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 120_000 });
 const MODEL = 'claude-opus-4-7';
 const THINKING_BUDGET = 6_000;
 
@@ -123,7 +123,7 @@ export async function synthesizeScenario(description: string): Promise<Synthesiz
   const response = await client.messages.create({
     model: MODEL,
     max_tokens: 12_000,
-    thinking: { type: 'enabled', budget_tokens: THINKING_BUDGET },
+    thinking: { type: 'adaptive' } as any,
     system: BUILDER_SYSTEM,
     messages: [
       {

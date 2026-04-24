@@ -17,7 +17,7 @@ import { getAllEvents } from '../timetravel/snapshot.js';
 import { computeBlastRadius } from './blastRadius.js';
 import { getActivePolicies } from '../interceptor.js';
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 120_000 });
 const MODEL = 'claude-opus-4-7';
 const THINKING_BUDGET = 6_000;
 const MAX_TOKENS = 8_000;
@@ -212,12 +212,35 @@ export interface AskOpusResult {
   thinkingText: string;
   rawText: string;
   contextTokens: number; // approx
+  truncated?: boolean;
+  droppedRuns?: number;
 }
 
+// Opus 4.7 has a 1M-token context window with the `[1m]` model id.
+// Leave headroom for system prompt + thinking budget + response.
+const MAX_CONTEXT_TOKENS = 800_000;
+
 export async function askOpus(opts: AskOpusOptions): Promise<AskOpusResult> {
-  const ctx = buildContext();
+  let ctx = buildContext();
+  let userPrompt = buildUserPrompt(opts.question, ctx);
+  let approxTokens = Math.ceil(userPrompt.length / 4);
+
+  let droppedRuns = 0;
+  // Sort runs oldest-first so we drop the oldest until we fit.
+  while (approxTokens > MAX_CONTEXT_TOKENS && ctx.runs.length > 1) {
+    ctx = {
+      ...ctx,
+      runs: ctx.runs.slice(1), // drop oldest (buildContext returns in insertion order)
+    };
+    droppedRuns++;
+    userPrompt = buildUserPrompt(opts.question, ctx);
+    approxTokens = Math.ceil(userPrompt.length / 4);
+  }
+  if (droppedRuns > 0) {
+    console.warn(`[askOpus] context exceeded ${MAX_CONTEXT_TOKENS} tokens — dropped ${droppedRuns} oldest runs, now ~${approxTokens} tokens`);
+  }
+
   const validRunIds = new Set(ctx.runs.map((r) => r.id));
-  const userPrompt = buildUserPrompt(opts.question, ctx);
 
   let thinkingText = '';
   let responseText = '';
@@ -225,7 +248,7 @@ export async function askOpus(opts: AskOpusOptions): Promise<AskOpusResult> {
   const stream = client.messages.stream({
     model: MODEL,
     max_tokens: MAX_TOKENS,
-    thinking: { type: 'enabled', budget_tokens: THINKING_BUDGET },
+    thinking: { type: 'adaptive' } as any,
     system: ASK_SYSTEM,
     messages: [{ role: 'user', content: userPrompt }],
   });
@@ -250,5 +273,7 @@ export async function askOpus(opts: AskOpusOptions): Promise<AskOpusResult> {
     thinkingText,
     rawText: responseText,
     contextTokens: Math.ceil(userPrompt.length / 4),
+    truncated: droppedRuns > 0,
+    droppedRuns,
   };
 }

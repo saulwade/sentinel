@@ -27,7 +27,7 @@ import { testAttack } from './tester.js';
 import { getActivePolicies, setActivePolicies } from '../interceptor.js';
 import { DEFAULT_POLICIES } from '../policies/defaults.js';
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 120_000 });
 const REPORT_MODEL = 'claude-opus-4-7';
 const REPORT_THINKING = 4_000;
 
@@ -316,7 +316,7 @@ async function generateBattleReport(
   const res = await client.messages.create({
     model: REPORT_MODEL,
     max_tokens: 8_000,
-    thinking: { type: 'enabled', budget_tokens: REPORT_THINKING },
+    thinking: { type: 'adaptive' } as any,
     system: BATTLE_REPORT_SYSTEM,
     messages: [{ role: 'user', content: userPrompt }],
   });

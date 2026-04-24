@@ -15,7 +15,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { Attack, AttackTechnique, PriorAttempt } from '@sentinel/shared';
 import { getActivePolicies } from '../interceptor.js';
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 120_000 });
 const MODEL = 'claude-opus-4-7';
 const ITER1_THINKING = 4_000;
 const ITER2_THINKING = 6_000;
@@ -135,7 +135,7 @@ export async function generateAttacksForIteration(opts: GenerateOptions): Promis
     const stream = client.messages.stream({
       model: MODEL,
       max_tokens: 16_000,
-      thinking: { type: 'enabled', budget_tokens: budget },
+      thinking: { type: 'adaptive' } as any,
       messages: [{ role: 'user', content: prompt }],
     });
     for await (const event of stream) {
@@ -148,7 +148,7 @@ export async function generateAttacksForIteration(opts: GenerateOptions): Promis
     const res = await client.messages.create({
       model: MODEL,
       max_tokens: 16_000,
-      thinking: { type: 'enabled', budget_tokens: budget },
+      thinking: { type: 'adaptive' } as any,
       messages: [{ role: 'user', content: prompt }],
     });
     for (const block of res.content) {

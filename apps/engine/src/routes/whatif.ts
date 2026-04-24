@@ -15,18 +15,21 @@ import type { PolicyCondition, PolicySeverity } from '@sentinel/shared';
 export const whatifRouter = new Hono();
 
 whatifRouter.post('/apply-fix', async (c) => {
-  const body = (await c.req.json().catch(() => null)) as
-    | {
-        title?: string;
-        description?: string;
-        severity?: PolicySeverity;
-        when?: PolicyCondition[];
-        reasoning?: string;
-        sourceDecisionEventId?: string;
-      }
-    | null;
+  let body: {
+    title?: string;
+    description?: string;
+    severity?: PolicySeverity;
+    when?: PolicyCondition[];
+    reasoning?: string;
+    sourceDecisionEventId?: string;
+  };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'invalid JSON body' }, 400);
+  }
 
-  if (!body || !Array.isArray(body.when) || body.when.length === 0) {
+  if (!Array.isArray(body.when) || body.when.length === 0) {
     return c.json({ error: 'invalid fix body — need title, severity, when[]' }, 400);
   }
 

@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "biome check src"
+    "lint": "biome check src",
+    "audit:cache": "tsx scripts/audit-cache.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

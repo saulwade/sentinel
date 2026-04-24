@@ -14,6 +14,13 @@ import { eq, ne } from 'drizzle-orm';
 export const adminRouter = new Hono();
 
 adminRouter.post('/reset', (c) => {
+  const expected = process.env.ADMIN_TOKEN;
+  if (expected) {
+    const provided = c.req.header('x-admin-token');
+    if (provided !== expected) {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+  }
   // Wipe all events and runs
   db.delete(eventsTable).run();
   db.delete(runsTable).run();

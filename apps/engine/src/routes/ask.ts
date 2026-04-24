@@ -47,7 +47,7 @@ askRouter.post('/stream', (c) => {
 
     let thinkingChars = 0;
     try {
-      const { response, thinkingText, contextTokens } = await askOpus({
+      const { response, thinkingText, contextTokens, truncated, droppedRuns } = await askOpus({
         question,
         onThinkingDelta: (delta) => {
           thinkingChars += delta.length;
@@ -57,7 +57,7 @@ askRouter.post('/stream', (c) => {
 
       await stream.writeSSE({
         event: 'result',
-        data: JSON.stringify({ ...response, contextTokens }),
+        data: JSON.stringify({ ...response, contextTokens, truncated, droppedRuns }),
       });
       await stream.writeSSE({
         event: 'done',

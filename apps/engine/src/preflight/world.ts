@@ -6,7 +6,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 120_000 });
 const MODEL = 'claude-opus-4-7';
 
 export interface SimEvent {
@@ -60,7 +60,7 @@ export async function generateScenarios(
   const res = await client.messages.create({
     model: MODEL,
     max_tokens: 12_000,
-    thinking: { type: 'enabled', budget_tokens: 4_000 },
+    thinking: { type: 'adaptive' } as any,
     messages: [{ role: 'user', content: GENERATION_PROMPT }],
   });
 

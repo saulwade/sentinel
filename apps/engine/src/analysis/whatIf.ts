@@ -28,7 +28,7 @@ import { getActivePolicies } from '../interceptor.js';
 import { evaluatePolicies } from '../policies/engine.js';
 import { getWorld } from '../agent/world.js';
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 120_000 });
 const MODEL = 'claude-opus-4-7';
 const GENERATOR_THINKING = 3_000;
 const SUMMARY_THINKING = 2_500;
@@ -194,11 +194,60 @@ function extractJson(raw: string): Record<string, unknown> {
   const clean = stripFences(raw);
   try {
     return JSON.parse(clean);
-  } catch {
-    const m = clean.match(/\{[\s\S]*\}/);
-    if (!m) throw new Error('no JSON object in response');
-    return JSON.parse(m[0]);
+  } catch {}
+  const m = clean.match(/\{[\s\S]*\}/);
+  if (m) {
+    try {
+      return JSON.parse(m[0]);
+    } catch {}
   }
+  // Tolerant path: extract top-level objects inside a "mutations": [ ... ] array
+  // one by one. This survives a single malformed mutation in the middle of
+  // the response (truncation, unescaped quotes, trailing comma, etc).
+  const mutations = extractMutationObjects(clean);
+  if (mutations.length > 0) return { mutations };
+  throw new Error('no JSON object in response');
+}
+
+/**
+ * Scan a raw Opus response and pull out each `{...}` object living inside a
+ * `mutations` / top-level array. Uses a brace-balanced scanner that ignores
+ * braces inside string literals. Each candidate object is attempted as JSON
+ * independently — malformed ones are skipped rather than failing the batch.
+ */
+function extractMutationObjects(raw: string): unknown[] {
+  const out: unknown[] = [];
+  const starts: number[] = [];
+  let inString = false;
+  let escape = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (inString) {
+      if (escape) { escape = false; continue; }
+      if (ch === '\\') { escape = true; continue; }
+      if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') { inString = true; continue; }
+    if (ch === '{') {
+      starts.push(i);
+    } else if (ch === '}') {
+      const start = starts.pop();
+      if (start === undefined) continue;
+      const candidate = raw.slice(start, i + 1);
+      try {
+        const obj = JSON.parse(candidate);
+        // Only keep real mutation shapes (have "tool" or "strategy").
+        // Skips the outer wrapper and inner `args` sub-objects.
+        if (obj && typeof obj === 'object' && ('tool' in obj || 'strategy' in obj)) {
+          out.push(obj);
+        }
+      } catch {
+        // malformed object — skip, keep scanning outer scopes
+      }
+    }
+  }
+  return out;
 }
 
 function validateMutations(raw: unknown): WhatIfMutation[] {
@@ -249,7 +298,7 @@ Generate ${TARGET_MUTATIONS} creative mutations now. JSON only.`;
   const stream = client.messages.stream({
     model: MODEL,
     max_tokens: MAX_TOKENS,
-    thinking: { type: 'enabled', budget_tokens: GENERATOR_THINKING },
+    thinking: { type: 'adaptive' } as any,
     system: GENERATOR_SYSTEM,
     messages: [{ role: 'user', content: userPrompt }],
   });
@@ -373,7 +422,7 @@ Analyze. JSON only.`;
     const stream = client.messages.stream({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      thinking: { type: 'enabled', budget_tokens: SUMMARY_THINKING },
+      thinking: { type: 'adaptive' } as any,
       system: SUMMARY_SYSTEM,
       messages: [{ role: 'user', content: userPrompt }],
     });

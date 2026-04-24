@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 
 import { ENGINE } from "../lib/engine";
+import { PixelLoader } from "./PixelLoader";
 
 interface SynthesizedScenario {
   id: string;
@@ -380,6 +381,14 @@ function AgentDnaSection({ onLaunched }: { onLaunched?: (runId: string, label: s
           </span>
         )}
       </div>
+
+      {analyzing && !thinking && (
+        <PixelLoader
+          variant="knight"
+          label="Opus is studying the agent"
+          sublabel="Reading the system prompt and mapping risks"
+        />
+      )}
 
       {(analyzing || thinking) && (
         <div className="mt-3 rounded-lg" style={{ background: "rgba(167,139,250,0.04)", border: "1px solid rgba(167,139,250,0.2)" }}>

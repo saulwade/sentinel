@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Arena from "./Arena";
+import { PixelLoader } from "./PixelLoader";
+import { usePersistentState } from "../lib/usePersistentState";
 
 import { ENGINE } from "../lib/engine";
 
@@ -120,19 +122,27 @@ function sourceBadgeStyle(s: string): React.CSSProperties {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function RedTeam() {
-  const [records, setRecords] = useState<AttackRecord[]>([]);
-  const [currentIteration, setCurrentIteration] = useState(0);
+  const [records, setRecords] = usePersistentState<AttackRecord[]>("redteam.records", []);
+  const [currentIteration, setCurrentIteration] = usePersistentState<number>("redteam.currentIteration", 0);
   const [loopStatus, setLoopStatus] = useState<"idle" | "running" | "done">("idle");
   const [loopPhase, setLoopPhase] = useState<"generating" | "testing" | null>(null);
-  const [loopSummary, setLoopSummary] = useState<LoopSummary | null>(null);
+  const [loopSummary, setLoopSummary] = usePersistentState<LoopSummary | null>("redteam.loopSummary", null);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [selected, setSelected] = useState<AttackRecord | null>(null);
   const [synthesizing, setSynthesizing] = useState<string | null>(null);
-  const [synthesizedPolicies, setSynthesizedPolicies] = useState<Map<string, Policy>>(new Map());
+  const [synthObj, setSynthObj] = usePersistentState<Record<string, Policy>>("redteam.synthesized", {});
+  const synthesizedPolicies = new Map(Object.entries(synthObj));
+  function setSynthesizedPolicies(next: Map<string, Policy> | ((prev: Map<string, Policy>) => Map<string, Policy>)) {
+    setSynthObj((prev) => {
+      const prevMap = new Map(Object.entries(prev));
+      const nextMap = typeof next === "function" ? next(prevMap) : next;
+      return Object.fromEntries(nextMap);
+    });
+  }
   const [adoptedIds, setAdoptedIds] = useState<Set<string>>(new Set());
   const [simLoading, setSimLoading] = useState<string | null>(null);
   const [simResults, setSimResults] = useState<Map<string, { totalRuns: number; wouldBlock: number; wouldPause: number; falsePositives: number }>>(new Map());
-  const [authorText, setAuthorText] = useState("");
+  const [authorText, setAuthorText] = usePersistentState<string>("redteam.authorText", "");
   const [authoring, setAuthoring] = useState(false);
   const [authorError, setAuthorError] = useState<string | null>(null);
   const [authoredPolicy, setAuthoredPolicy] = useState<Policy | null>(null);
@@ -141,10 +151,10 @@ export default function RedTeam() {
   const [driftOpen, setDriftOpen] = useState(false);
   const [driftRunning, setDriftRunning] = useState(false);
   const [driftThinking, setDriftThinking] = useState("");
-  const [driftResult, setDriftResult] = useState<DriftAuditResponse | null>(null);
+  const [driftResult, setDriftResult] = usePersistentState<DriftAuditResponse | null>("redteam.driftResult", null);
   const [driftError, setDriftError] = useState<string | null>(null);
   const [driftAdopted, setDriftAdopted] = useState<Set<string>>(new Set());
-  const [mode, setMode] = useState<"standard" | "arena">("standard");
+  const [mode, setMode] = usePersistentState<"standard" | "arena">("redteam.mode", "standard");
 
   const fetchPolicies = useCallback(async () => {
     try {
@@ -554,6 +564,24 @@ export default function RedTeam() {
             : loopPhase === "generating" ? "Generating…"
             : "Testing…"}
         </button>
+        {loopStatus !== "running" && records.length > 0 && (
+          <button
+            onClick={() => {
+              setRecords([]);
+              setLoopSummary(null);
+              setSynthObj({});
+              setCurrentIteration(0);
+              setSelected(null);
+              setAuthoredPolicy(null);
+              setAuthorText("");
+            }}
+            className="px-3 py-1 rounded text-[10px] font-mono transition-all active:scale-95 hover:brightness-110"
+            style={{ background: "#1C1C24", color: "#8A8A93", border: "1px solid #262630" }}
+            title="Clear Red Team state"
+          >
+            ✕ Clear
+          </button>
+        )}
       </div>
 
       {/* ── Main body ─────────────────────────────────────────────── */}
@@ -571,7 +599,7 @@ export default function RedTeam() {
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {loopStatus === "idle" && (
+            {loopStatus === "idle" && records.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full gap-2 px-6">
                 <p className="font-mono text-sm text-center" style={{ color: "#8A8A93" }}>
                   Opus generates 5 attacks per iteration. In each iteration, it sees what was blocked and mutates to evade.
@@ -580,6 +608,14 @@ export default function RedTeam() {
                   Bypasses go to Policy Synthesis → auto-generated DSL rules.
                 </p>
               </div>
+            )}
+
+            {loopStatus === "running" && records.length === 0 && (
+              <PixelLoader
+                variant="knight"
+                label="Forging the first wave"
+                sublabel={loopPhase === "generating" ? "Opus is drafting 5 novel attacks" : "Testing attacks against policies"}
+              />
             )}
 
             {records.map((r) => {
@@ -648,6 +684,115 @@ export default function RedTeam() {
 
         {/* Inspector + Policy catalog */}
         <div className="w-full lg:w-[440px] lg:shrink-0 flex flex-col min-h-0">
+          {/* Policy authoring — moved to top so it's visible without scroll */}
+          <div className="shrink-0 border-b" style={{ borderColor: "#262630" }}>
+            <div
+              className="px-4 py-2 text-[10px] font-mono uppercase tracking-widest flex items-center gap-2"
+              style={{ color: "#8A8A93", borderBottom: "1px solid #262630", background: "#0A0A0D" }}
+            >
+              ✎ Author Policy
+              <span className="text-[9px] normal-case tracking-normal" style={{ color: "#8A8A93" }}>
+                natural language → DSL via Opus
+              </span>
+            </div>
+            <div className="p-3 space-y-2">
+              {!authoredPolicy && (
+                <>
+                  <textarea
+                    value={authorText}
+                    onChange={(e) => setAuthorText(e.target.value)}
+                    placeholder="e.g. Block any refund over $5,000 unless it references a verified SLA breach"
+                    rows={2}
+                    disabled={authoring}
+                    className="w-full px-2.5 py-1.5 rounded text-[11px] font-mono resize-none disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
+                    style={{ background: "#14141A", color: "#F5F5F7", border: "1px solid #262630" }}
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={authorPolicy}
+                      disabled={authoring || authorText.trim().length < 8}
+                      className="py-1.5 px-3 rounded text-[10px] font-mono font-medium transition-all active:scale-95 hover:brightness-110 disabled:opacity-40"
+                      style={{ background: "rgba(167,139,250,0.15)", color: "#A78BFA", border: "1px solid rgba(167,139,250,0.4)" }}
+                    >
+                      {authoring ? "⟳ Synthesizing with Opus…" : "✦ Synthesize →"}
+                    </button>
+                    {authorError && (
+                      <span className="text-[10px] font-mono" style={{ color: "#FF5A5A" }}>{authorError}</span>
+                    )}
+                  </div>
+                </>
+              )}
+              {authoredPolicy && (() => {
+                const isAdopted = adoptedIds.has(authoredPolicy.id);
+                const sim = simResults.get(authoredPolicy.id);
+                const isSimming = simLoading === authoredPolicy.id;
+                return (
+                  <div className="p-2.5 rounded space-y-2" style={{ background: "rgba(167,139,250,0.06)", border: "1px solid rgba(167,139,250,0.3)" }}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#A78BFA" }}>
+                        Authored Policy
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {!isAdopted ? (
+                          <button
+                            onClick={() => adopt(authoredPolicy)}
+                            className="text-[10px] font-mono font-bold px-2 py-0.5 rounded transition-all active:scale-95 hover:brightness-110"
+                            style={{ background: "#A78BFA", color: "#0A0A0D" }}
+                          >
+                            Adopt →
+                          </button>
+                        ) : (
+                          <span className="text-[10px] font-mono" style={{ color: "#2DD4A4" }}>✓ Adopted</span>
+                        )}
+                        <button
+                          onClick={dismissAuthored}
+                          className="text-[10px] font-mono px-1.5 py-0.5 rounded transition-all hover:brightness-150"
+                          style={{ color: "#8A8A93", background: "#1C1C24" }}
+                          title="Dismiss"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-[11px] font-mono font-bold" style={{ color: "#F5F5F7" }}>{authoredPolicy.name}</p>
+                    <p className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>{authoredPolicy.description}</p>
+                    {authoredPolicy.reasoning && (
+                      <p className="text-[10px] font-mono italic" style={{ color: "#A78BFA" }}>{authoredPolicy.reasoning}</p>
+                    )}
+                    {!isAdopted && (
+                      sim ? (
+                        <div
+                          className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-mono"
+                          style={{
+                            background: sim.falsePositives === 0 ? "rgba(45,212,164,0.06)" : "rgba(247,185,85,0.06)",
+                            border: `1px solid ${sim.falsePositives === 0 ? "rgba(45,212,164,0.2)" : "rgba(247,185,85,0.2)"}`,
+                          }}
+                        >
+                          <span style={{ color: sim.falsePositives === 0 ? "#2DD4A4" : "#F7B955" }}>
+                            {sim.totalRuns === 0
+                              ? "No runs to test against"
+                              : sim.falsePositives === 0
+                              ? `✓ Would catch ${sim.wouldBlock + sim.wouldPause} · 0 false positives`
+                              : `⚠ ${sim.wouldBlock + sim.wouldPause} matches · ${sim.falsePositives} false positives`}
+                          </span>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => simulate(authoredPolicy)}
+                          disabled={isSimming}
+                          className="w-full py-1 rounded text-[10px] font-mono transition-all active:scale-95 hover:brightness-110 disabled:opacity-50"
+                          style={{ background: "#14141A", color: "#8A8A93", border: "1px solid #262630" }}
+                        >
+                          {isSimming ? "Testing…" : "Test against history →"}
+                        </button>
+                      )
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
           {/* Inspector */}
           <div className="flex-1 overflow-y-auto border-b" style={{ borderColor: "#262630" }}>
             <div
@@ -797,115 +942,6 @@ export default function RedTeam() {
                 })()}
               </div>
             )}
-          </div>
-
-          {/* Policy authoring — natural language → DSL */}
-          <div className="shrink-0 border-t" style={{ borderColor: "#262630" }}>
-            <div
-              className="px-4 py-2 text-[10px] font-mono uppercase tracking-widest flex items-center gap-2"
-              style={{ color: "#8A8A93", borderBottom: "1px solid #262630", background: "#0A0A0D" }}
-            >
-              ✎ Author Policy
-              <span className="text-[9px] normal-case tracking-normal" style={{ color: "#8A8A93" }}>
-                natural language → DSL via Opus
-              </span>
-            </div>
-            <div className="p-3 space-y-2">
-              {!authoredPolicy && (
-                <>
-                  <textarea
-                    value={authorText}
-                    onChange={(e) => setAuthorText(e.target.value)}
-                    placeholder="e.g. Block any refund over $5,000 unless it references a verified SLA breach"
-                    rows={2}
-                    disabled={authoring}
-                    className="w-full px-2.5 py-1.5 rounded text-[11px] font-mono resize-none disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-[#A78BFA]"
-                    style={{ background: "#14141A", color: "#F5F5F7", border: "1px solid #262630" }}
-                  />
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={authorPolicy}
-                      disabled={authoring || authorText.trim().length < 8}
-                      className="py-1.5 px-3 rounded text-[10px] font-mono font-medium transition-all active:scale-95 hover:brightness-110 disabled:opacity-40"
-                      style={{ background: "rgba(167,139,250,0.15)", color: "#A78BFA", border: "1px solid rgba(167,139,250,0.4)" }}
-                    >
-                      {authoring ? "⟳ Synthesizing with Opus…" : "✦ Synthesize →"}
-                    </button>
-                    {authorError && (
-                      <span className="text-[10px] font-mono" style={{ color: "#FF5A5A" }}>{authorError}</span>
-                    )}
-                  </div>
-                </>
-              )}
-              {authoredPolicy && (() => {
-                const isAdopted = adoptedIds.has(authoredPolicy.id);
-                const sim = simResults.get(authoredPolicy.id);
-                const isSimming = simLoading === authoredPolicy.id;
-                return (
-                  <div className="p-2.5 rounded space-y-2" style={{ background: "rgba(167,139,250,0.06)", border: "1px solid rgba(167,139,250,0.3)" }}>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#A78BFA" }}>
-                        Authored Policy
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        {!isAdopted ? (
-                          <button
-                            onClick={() => adopt(authoredPolicy)}
-                            className="text-[10px] font-mono font-bold px-2 py-0.5 rounded transition-all active:scale-95 hover:brightness-110"
-                            style={{ background: "#A78BFA", color: "#0A0A0D" }}
-                          >
-                            Adopt →
-                          </button>
-                        ) : (
-                          <span className="text-[10px] font-mono" style={{ color: "#2DD4A4" }}>✓ Adopted</span>
-                        )}
-                        <button
-                          onClick={dismissAuthored}
-                          className="text-[10px] font-mono px-1.5 py-0.5 rounded transition-all hover:brightness-150"
-                          style={{ color: "#8A8A93", background: "#1C1C24" }}
-                          title="Dismiss"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                    <p className="text-[11px] font-mono font-bold" style={{ color: "#F5F5F7" }}>{authoredPolicy.name}</p>
-                    <p className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>{authoredPolicy.description}</p>
-                    {authoredPolicy.reasoning && (
-                      <p className="text-[10px] font-mono italic" style={{ color: "#A78BFA" }}>{authoredPolicy.reasoning}</p>
-                    )}
-                    {!isAdopted && (
-                      sim ? (
-                        <div
-                          className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-mono"
-                          style={{
-                            background: sim.falsePositives === 0 ? "rgba(45,212,164,0.06)" : "rgba(247,185,85,0.06)",
-                            border: `1px solid ${sim.falsePositives === 0 ? "rgba(45,212,164,0.2)" : "rgba(247,185,85,0.2)"}`,
-                          }}
-                        >
-                          <span style={{ color: sim.falsePositives === 0 ? "#2DD4A4" : "#F7B955" }}>
-                            {sim.totalRuns === 0
-                              ? "No runs to test against"
-                              : sim.falsePositives === 0
-                              ? `✓ Would catch ${sim.wouldBlock + sim.wouldPause} · 0 false positives`
-                              : `⚠ ${sim.wouldBlock + sim.wouldPause} matches · ${sim.falsePositives} false positives`}
-                          </span>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => simulate(authoredPolicy)}
-                          disabled={isSimming}
-                          className="w-full py-1 rounded text-[10px] font-mono transition-all active:scale-95 hover:brightness-110 disabled:opacity-50"
-                          style={{ background: "#14141A", color: "#8A8A93", border: "1px solid #262630" }}
-                        >
-                          {isSimming ? "Testing…" : "Test against history →"}
-                        </button>
-                      )
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
           </div>
 
           {/* Policy catalog */}
@@ -1065,6 +1101,13 @@ function DriftPanel({
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {running && !thinking && !result && !error && (
+          <PixelLoader
+            variant="scroll"
+            label="Auditing your defenses"
+            sublabel="Opus is reviewing every policy against run history"
+          />
+        )}
         {/* Thinking */}
         {(running || thinking) && (
           <div className="rounded-lg" style={{ background: "rgba(167,139,250,0.04)", border: "1px solid rgba(167,139,250,0.2)" }}>

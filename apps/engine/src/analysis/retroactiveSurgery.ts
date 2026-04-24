@@ -27,7 +27,7 @@ import { getAllEvents } from '../timetravel/snapshot.js';
 import { evaluatePolicies } from '../policies/engine.js';
 import { getWorld } from '../agent/world.js';
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 120_000 });
 const MODEL = 'claude-opus-4-7';
 const THINKING_BUDGET = 6_000;
 const MAX_TOKENS = 8_000;
@@ -380,7 +380,7 @@ export async function performSurgery(opts: SurgeryOptions, activePolicies: Polic
     const stream = client.messages.stream({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      thinking: { type: 'enabled', budget_tokens: THINKING_BUDGET },
+      thinking: { type: 'adaptive' } as any,
       system: SURGERY_SYSTEM,
       messages: [{ role: 'user', content: userPrompt }],
     });

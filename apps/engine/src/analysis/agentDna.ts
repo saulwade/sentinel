@@ -11,7 +11,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { nanoid } from 'nanoid';
 import type { DnaAnalysisResponse, DnaAttackProposal, DnaSeverity } from '@sentinel/shared';
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 120_000 });
 const MODEL = 'claude-opus-4-7';
 const THINKING_BUDGET = 8_000;
 const MAX_TOKENS = 16_000;
@@ -136,7 +136,7 @@ export async function analyzeAgentPrompt(opts: AnalyzePromptOptions): Promise<An
   const stream = client.messages.stream({
     model: MODEL,
     max_tokens: MAX_TOKENS,
-    thinking: { type: 'enabled', budget_tokens: THINKING_BUDGET },
+    thinking: { type: 'adaptive' } as any,
     system: DNA_SYSTEM,
     messages: [{ role: 'user', content: userPrompt }],
   });

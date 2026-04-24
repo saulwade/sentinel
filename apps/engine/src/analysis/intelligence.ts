@@ -14,7 +14,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { AgentEvent, RunAnalysis } from '@sentinel/shared';
 import type { BlastRadius } from './blastRadius.js';
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 120_000 });
 
 const MODEL = 'claude-opus-4-7';
 const THINKING_BUDGET = 10_000;
@@ -190,7 +190,7 @@ export async function generateIntelligence(opts: IntelligenceOptions): Promise<I
   const stream = client.messages.stream({
     model: MODEL,
     max_tokens: MAX_TOKENS,
-    thinking: { type: 'enabled', budget_tokens: THINKING_BUDGET },
+    thinking: { type: 'adaptive' } as any,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userPrompt }],
   });

@@ -462,6 +462,15 @@ export function setDemoCache(enabled: boolean): void {
   useDemoCache = enabled;
 }
 
+// ─── Exported for audit-cache.ts only — do not use at runtime ──────────────
+export function getDemoCacheSnapshot(): Readonly<Record<string, CachedVerdict>> {
+  // Return a shallow clone so callers can't mutate the live cache.
+  return Object.freeze({ ...DEMO_CACHE });
+}
+export function getCacheKeyForAudit(name: string, args: Record<string, unknown>): string {
+  return getCacheKey(name as ToolName, args);
+}
+
 function getCacheKey(name: string, args: Record<string, unknown>): string {
   if (name === 'read_email') return `read_email:${args.id}`;
   if (name === 'query_customers') return 'query_customers:';

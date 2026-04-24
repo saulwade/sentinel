@@ -11,7 +11,7 @@ import type { AgentEvent, Verdict, DecisionPayload } from '@sentinel/shared';
 import type { WorldState } from '../agent/world.js';
 import { PRECOG_SYSTEM, buildUserPrompt } from './prompts.js';
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 120_000 });
 
 const MODEL = 'claude-opus-4-7';
 const THINKING_BUDGET = 8_000;
@@ -37,7 +37,7 @@ export async function verify(
   const stream = client.messages.stream({
     model: MODEL,
     max_tokens: 16_000,
-    thinking: { type: 'enabled', budget_tokens: THINKING_BUDGET },
+    thinking: { type: 'adaptive' } as any,
     system: PRECOG_SYSTEM,
     messages: [{ role: 'user', content: userPrompt }],
   });

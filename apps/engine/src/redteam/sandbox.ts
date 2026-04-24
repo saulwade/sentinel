@@ -7,7 +7,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { Attack } from './attacker.js';
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 120_000 });
 const EVAL_MODEL = 'claude-sonnet-4-6';
 
 export type AttackResult = 'blocked' | 'paused' | 'bypassed';

@@ -1,0 +1,36 @@
+# Keep the build context lean so `flyctl deploy` uploads fast.
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/.vercel
+**/coverage
+
+# Apps we don't ship in the engine image
+apps/web
+
+# Secrets and local-only files
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Logs, editor, OS junk
+*.log
+.DS_Store
+.idea
+.vscode
+
+# Database and volumes (will be recreated in the container)
+apps/engine/data
+
+# Git / CI
+.git
+.github
+
+# Docs that don't affect the image
+HARDENING_PLAN.md
+ROADMAP.md
+.claude

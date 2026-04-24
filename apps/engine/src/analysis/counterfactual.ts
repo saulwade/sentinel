@@ -11,7 +11,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { AgentEvent } from '@sentinel/shared';
 import type { WorldState } from '../agent/world.js';
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 120_000 });
 const MODEL = 'claude-opus-4-7';
 
 export interface LiveCounterfactual {
@@ -54,7 +54,7 @@ export async function generateCounterfactual(
   const response = await client.messages.create({
     model: MODEL,
     max_tokens: 6_000,
-    thinking: { type: 'enabled', budget_tokens: 4_000 },
+    thinking: { type: 'adaptive' } as any,
     system: SYSTEM,
     messages: [{ role: 'user', content: prompt }],
   });

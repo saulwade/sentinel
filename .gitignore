@@ -48,3 +48,9 @@ coverage/
 
 # Turbopack / caches
 .turbo/
+
+# Claude Code local state (project-scoped memory, session logs)
+.claude/
+
+# Local MCP config (copy .mcp.json.example and fill in secrets)
+.mcp.json

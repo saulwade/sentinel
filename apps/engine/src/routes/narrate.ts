@@ -13,7 +13,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 export const narrateRouter = new Hono();
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 120_000 });
 const MODEL = 'claude-sonnet-4-6';
 
 const SYSTEM = `You are Sentinel's live narrator. As an AI agent executes actions, you explain each step in plain English — like a sports commentator, but for AI security.

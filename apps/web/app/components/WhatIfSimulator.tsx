@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { ENGINE } from "../lib/engine";
+import { PixelLoader } from "./PixelLoader";
 
 // ─── Types (mirror @sentinel/shared/whatif) ───────────────────────────────────
 
@@ -214,7 +215,9 @@ export default function WhatIfSimulator({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6"
       style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
-      onClick={onClose}
+      onClick={() => {
+        if (phase === "done" || fatalError) onClose();
+      }}
     >
       <div
         className="w-full max-w-[min(1400px,calc(100vw-24px))] max-h-[92vh] rounded-2xl overflow-hidden flex flex-col"
@@ -275,6 +278,13 @@ export default function WhatIfSimulator({
               </div>
             </div>
 
+            {mutations.length === 0 && !fatalError && (
+              <PixelLoader
+                variant="knight"
+                label="Summoning mutations"
+                sublabel="Opus is crafting 20 adversarial variants"
+              />
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {Array.from({ length: 20 }).map((_, i) => {
                 const m = mutations[i];
@@ -333,6 +343,27 @@ export default function WhatIfSimulator({
                 <div className="text-[10px] font-mono uppercase tracking-widest mb-1" style={{ color: "#FF5A5A" }}>Error</div>
                 <div className="text-[11px] font-mono" style={{ color: "#FF5A5A" }}>{fatalError}</div>
               </div>
+            )}
+
+            {/* Right-panel loader — covers gap from first mutation until summary lands */}
+            {!summary && !fatalError && mutations.length > 0 && (
+              <PixelLoader
+                variant="scroll"
+                label={
+                  summaryThinking
+                    ? "Drafting policy fixes"
+                    : results.size < 20
+                    ? "Running mutations through policies"
+                    : "Synthesizing the verdict"
+                }
+                sublabel={
+                  summaryThinking
+                    ? `Opus is writing recommendations · ~${Math.ceil(summaryThinking.length / 4)} tokens`
+                    : results.size < 20
+                    ? `${results.size}/20 evaluated`
+                    : "Opus is reviewing the full result set"
+                }
+              />
             )}
 
             {/* Summary headline */}

@@ -1,0 +1,13 @@
+{
+  "_comment": "Copy to ~/.claude.json or drop in a project root as .mcp.json. Replace ABSOLUTE_PATH with the real path to this repo.",
+  "mcpServers": {
+    "sentinel": {
+      "command": "pnpm",
+      "args": ["-F", "@sentinel/engine", "mcp"],
+      "cwd": "/ABSOLUTE_PATH/to/sentinel",
+      "env": {
+        "ANTHROPIC_API_KEY": "sk-ant-..."
+      }
+    }
+  }
+}

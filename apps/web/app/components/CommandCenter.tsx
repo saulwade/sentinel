@@ -54,7 +54,7 @@ interface McpTool {
 }
 
 interface McpStatus {
-  status: "active" | "standby";
+  status: "active" | "standby" | "registered";
   version: string;
   transport: string;
   tools: McpTool[];
@@ -582,8 +582,8 @@ export default function CommandCenter({ onNavigate, onRequestRun, executive = fa
                 <span
                   className="w-2 h-2 rounded-full"
                   style={{
-                    background: mcpStatus.status === "active" ? "#2DD4A4" : "#8A8A93",
-                    boxShadow: mcpStatus.status === "active" ? "0 0 6px #2DD4A4" : "none",
+                    background: mcpStatus.status === "active" || mcpStatus.status === "registered" ? "#2DD4A4" : "#8A8A93",
+                    boxShadow: mcpStatus.status === "active" || mcpStatus.status === "registered" ? "0 0 6px #2DD4A4" : "none",
                   }}
                 />
                 <span className="text-xs font-mono font-semibold" style={{ color: "#F5F5F7" }}>

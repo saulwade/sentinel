@@ -231,6 +231,7 @@ export default function LiveView({
   executive = false,
   externalRunId,
   onExternalRunConsumed,
+  highlightRun = false,
 }: {
   onRunStarted?: (id: string, label: string, task: string) => void;
   onNavigate?: (tab: string) => void;
@@ -241,6 +242,7 @@ export default function LiveView({
   executive?: boolean;
   externalRunId?: string | null;
   onExternalRunConsumed?: () => void;
+  highlightRun?: boolean;
 }) {
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [runId, setRunId] = useState<string | null>(null);
@@ -255,6 +257,7 @@ export default function LiveView({
   const [liveThinking, setLiveThinking] = useState("");
   const [thinkingMap, setThinkingMap] = useState<Record<string, string>>({});
   const [pendingDecisionId, setPendingDecisionId] = useState<string | null>(null);
+  const [deciding, setDeciding] = useState(false);
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [blockFlash, setBlockFlash] = useState(false);
@@ -277,6 +280,7 @@ export default function LiveView({
   const narrationRef = useRef<HTMLDivElement | null>(null);
   const esRef = useRef<EventSource | null>(null);
   const currentToolCallId = useRef<string | null>(null);
+  const runEndedRef = useRef(false);
   const searchRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -377,6 +381,7 @@ export default function LiveView({
     }
 
     if (ev.type === "observation" && (ev.payload as Record<string, unknown>).kind === "run_ended") {
+      runEndedRef.current = true;
       setStatus("done");
       setLiveThinking("");
       setSummaryDismissed(false);
@@ -434,6 +439,18 @@ export default function LiveView({
     setScenario("ceo");
     setAgentMode("scenario");
     setViewMode("single");
+    // Force demo cache ON — auto demo must be deterministic even if the user
+    // previously toggled it off. Only reflect UI state if the engine actually
+    // confirmed the change; otherwise the next run would appear "fast" here
+    // while the engine still uses live Opus (slow, non-deterministic).
+    try {
+      const res = await fetch(`${ENGINE}/settings/demo-cache`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: true }),
+      });
+      if (res.ok) setDemoCache(true);
+    } catch {}
     setAutoDemoActive(true);
     // Small delay to let state settle before starting the run
     await new Promise((r) => setTimeout(r, 100));
@@ -496,10 +513,30 @@ export default function LiveView({
     setRunId(id);
     onRunStarted?.(id, label, task);
     esRef.current?.close();
+    runEndedRef.current = false;
+    openStream(id, 0);
+  }
+
+  function openStream(id: string, attempt: number) {
     const es = new EventSource(`${ENGINE}/runs/${id}/events`);
     esRef.current = es;
     es.onmessage = (e) => { try { handleEvent(JSON.parse(e.data)); } catch {} };
-    es.onerror = () => { es.close(); setStatus("done"); };
+    es.onerror = () => {
+      es.close();
+      if (runEndedRef.current) {
+        setStatus("done");
+        return;
+      }
+      if (attempt >= 3) {
+        setStatus("done");
+        return;
+      }
+      const delay = 1000 * Math.pow(2, attempt); // 1s, 2s, 4s
+      setTimeout(() => {
+        if (runEndedRef.current) return;
+        openStream(id, attempt + 1);
+      }, delay);
+    };
   }
 
   async function startRun() {
@@ -517,14 +554,19 @@ export default function LiveView({
   }
 
   async function decide(action: "approve" | "reject") {
-    if (!pendingDecisionId) return;
+    if (!pendingDecisionId || deciding) return;
     const id = pendingDecisionId;
+    setDeciding(true);
     setPendingDecisionId(null);
-    await fetch(`${ENGINE}/decide/${id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    });
+    try {
+      await fetch(`${ENGINE}/decide/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+    } finally {
+      setDeciding(false);
+    }
   }
 
   useEffect(() => { return () => esRef.current?.close(); }, []);
@@ -566,10 +608,10 @@ export default function LiveView({
           setSearch("");
           break;
         case "a":
-          if (pendingDecisionId) decide("approve");
+          if (pendingDecisionId && !deciding) decide("approve");
           break;
         case "d":
-          if (pendingDecisionId) decide("reject");
+          if (pendingDecisionId && !deciding) decide("reject");
           break;
         case "j": {
           // Move selection down (older events — events are newest-first in state)
@@ -808,8 +850,12 @@ export default function LiveView({
         <button
           onClick={viewMode === "fleet" ? startFleet : startRun}
           disabled={status === "running"}
-          className="ml-auto px-4 py-1.5 rounded text-xs font-mono font-medium transition-all duration-150 active:scale-95 disabled:opacity-40 hover:brightness-110"
-          style={{ background: viewMode === "fleet" ? "#2DD4A4" : "#A78BFA", color: "#0A0A0D" }}
+          className={`ml-auto px-4 py-1.5 rounded text-xs font-mono font-medium transition-all duration-150 active:scale-95 disabled:opacity-40 hover:brightness-110${highlightRun ? " animate-pulse-ring" : ""}`}
+          style={{
+            background: viewMode === "fleet" ? "#2DD4A4" : "#A78BFA",
+            color: "#0A0A0D",
+            boxShadow: highlightRun ? "0 0 0 0 rgba(167,139,250,0.7)" : undefined,
+          }}
         >
           {status === "running"
             ? "running..."
@@ -845,17 +891,19 @@ export default function LiveView({
           <div className="flex gap-2 ml-auto">
             <button
               onClick={() => decide("approve")}
-              className="px-3 py-1.5 rounded text-xs font-mono font-bold transition-all duration-150 active:scale-95 hover:brightness-110"
+              disabled={deciding || !pendingDecisionId}
+              className="px-3 py-1.5 rounded text-xs font-mono font-bold transition-all duration-150 active:scale-95 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
               style={{ background: "#2DD4A4", color: "#0A0A0D" }}
             >
-              Approve
+              {deciding ? "…" : "Approve"}
             </button>
             <button
               onClick={() => decide("reject")}
-              className="px-3 py-1.5 rounded text-xs font-mono font-bold transition-all duration-150 active:scale-95 hover:brightness-110"
+              disabled={deciding || !pendingDecisionId}
+              className="px-3 py-1.5 rounded text-xs font-mono font-bold transition-all duration-150 active:scale-95 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
               style={{ background: "#FF5A5A", color: "#0A0A0D" }}
             >
-              Deny
+              {deciding ? "…" : "Deny"}
             </button>
           </div>
         </div>

@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import { startRun, getRun, type ScenarioName } from '../agent/runner.js';
 import { subscribe } from '../stream/sse.js';
+import { startHeartbeat } from '../lib/sseHeartbeat.js';
 
 export const runsRouter = new Hono();
 
@@ -10,14 +11,24 @@ export const runsRouter = new Hono();
 runsRouter.post('/start', async (c) => {
   let mode: 'scenario' | 'agent' = 'scenario';
   let scenario: ScenarioName = 'support';
-  try {
-    const body = await c.req.json<{ mode?: string; scenario?: string }>();
+
+  // Empty body is allowed (use defaults). Non-empty body must be valid JSON;
+  // otherwise fail loudly so the caller knows their request was malformed.
+  const raw = await c.req.text();
+  if (raw.trim().length > 0) {
+    let body: { mode?: string; scenario?: string };
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      return c.json({ error: 'invalid JSON body' }, 400);
+    }
     if (body.mode === 'agent') mode = 'agent';
     if (body.scenario === 'phishing') scenario = 'phishing';
     else if (body.scenario === 'ceo') scenario = 'ceo';
     else if (body.scenario === 'gdpr') scenario = 'gdpr';
     else if (body.scenario === 'multi-agent') scenario = 'multi-agent';
-  } catch {}
+  }
+
   const run = await startRun(mode, scenario);
   return c.json(run, 201);
 });
@@ -37,6 +48,8 @@ runsRouter.get('/:id/events', (c) => {
     // Send current run status as first event so the client knows it's alive
     await stream.writeSSE({ event: 'connected', data: JSON.stringify({ runId }) });
 
+    const stopHeartbeat = startHeartbeat(stream);
+
     await new Promise<void>((resolve) => {
       const unsubscribe = subscribe(runId, (event) => {
         stream.writeSSE({ data: JSON.stringify(event) }).catch(() => {
@@ -50,5 +63,7 @@ runsRouter.get('/:id/events', (c) => {
         resolve();
       });
     });
+
+    stopHeartbeat();
   });
 });

@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 
 import { ENGINE } from "../lib/engine";
+import { PixelLoader } from "./PixelLoader";
+import { usePersistentState } from "../lib/usePersistentState";
 
 // ─── Types (mirror @sentinel/shared/arena) ────────────────────────────────────
 
@@ -90,22 +92,30 @@ function outcomeColor(o: string) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Arena() {
-  const [rounds, setRounds] = useState(3);
-  const [attacksPerRound, setAttacksPerRound] = useState(2);
+  const [rounds, setRounds] = usePersistentState<number>("arena.rounds", 3);
+  const [attacksPerRound, setAttacksPerRound] = usePersistentState<number>("arena.attacksPerRound", 2);
   const [running, setRunning] = useState(false);
-  const [currentRound, setCurrentRound] = useState(0);
-  const [totalRounds, setTotalRounds] = useState(3);
-  const [redThinking, setRedThinking] = useState("");
-  const [blueThinking, setBlueThinking] = useState("");
-  const [attacks, setAttacks] = useState<Attack[]>([]);
-  const [results, setResults] = useState<Map<string, TestResult>>(new Map());
-  const [policies, setPolicies] = useState<Array<{ policy: Policy; round: number; sourceAttackId: string }>>([]);
-  const [roundStats, setRoundStats] = useState<RoundStats[]>([]);
-  const [summary, setSummary] = useState<ArenaSummary | null>(null);
-  const [battleReport, setBattleReport] = useState<BattleReport | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [phase, setPhase] = useState<"red" | "blue" | null>(null);
-  const [showReport, setShowReport] = useState(true);
+  const [currentRound, setCurrentRound] = usePersistentState<number>("arena.currentRound", 0);
+  const [totalRounds, setTotalRounds] = usePersistentState<number>("arena.totalRounds", 3);
+  const [redThinking, setRedThinking] = usePersistentState<string>("arena.redThinking", "");
+  const [blueThinking, setBlueThinking] = usePersistentState<string>("arena.blueThinking", "");
+  const [attacks, setAttacks] = usePersistentState<Attack[]>("arena.attacks", []);
+  const [resultsObj, setResultsObj] = usePersistentState<Record<string, TestResult>>("arena.results", {});
+  const results = new Map(Object.entries(resultsObj));
+  function setResults(next: Map<string, TestResult> | ((prev: Map<string, TestResult>) => Map<string, TestResult>)) {
+    setResultsObj((prev) => {
+      const prevMap = new Map(Object.entries(prev));
+      const nextMap = typeof next === "function" ? next(prevMap) : next;
+      return Object.fromEntries(nextMap);
+    });
+  }
+  const [policies, setPolicies] = usePersistentState<Array<{ policy: Policy; round: number; sourceAttackId: string }>>("arena.policies", []);
+  const [roundStats, setRoundStats] = usePersistentState<RoundStats[]>("arena.roundStats", []);
+  const [summary, setSummary] = usePersistentState<ArenaSummary | null>("arena.summary", null);
+  const [battleReport, setBattleReport] = usePersistentState<BattleReport | null>("arena.battleReport", null);
+  const [error, setError] = usePersistentState<string | null>("arena.error", null);
+  const [phase, setPhase] = usePersistentState<"red" | "blue" | null>("arena.phase", null);
+  const [showReport, setShowReport] = usePersistentState<boolean>("arena.showReport", true);
 
   const redScrollRef = useRef<HTMLDivElement>(null);
   const blueScrollRef = useRef<HTMLDivElement>(null);
@@ -320,6 +330,28 @@ export default function Arena() {
             ↻ Run again
           </button>
         )}
+        {!running && (summary || attacks.length > 0) && (
+          <button
+            onClick={() => {
+              setRedThinking("");
+              setBlueThinking("");
+              setAttacks([]);
+              setResultsObj({});
+              setPolicies([]);
+              setRoundStats([]);
+              setSummary(null);
+              setBattleReport(null);
+              setError(null);
+              setPhase(null);
+              setCurrentRound(0);
+            }}
+            className="px-3 py-1 rounded text-[10px] font-mono font-medium transition-all active:scale-95 hover:brightness-110"
+            style={{ background: "#1C1C24", color: "#8A8A93", border: "1px solid #262630" }}
+            title="Clear arena state"
+          >
+            ✕ Clear
+          </button>
+        )}
       </div>
 
       {/* ── Split screen ────────────────────────────────────────────────── */}
@@ -396,6 +428,13 @@ export default function Arena() {
                 Red Opus generates adversarial attacks here
               </div>
             )}
+            {attacks.length === 0 && running && !redThinking && (
+              <PixelLoader
+                variant="knight"
+                label="Red is sharpening its blade"
+                sublabel="Generating the first wave of attacks"
+              />
+            )}
           </div>
         </div>
 
@@ -454,6 +493,13 @@ export default function Arena() {
               <div className="text-center text-[11px] font-mono pt-12" style={{ color: "#5A5A63" }}>
                 Blue Opus synthesizes defensive policies here
               </div>
+            )}
+            {policies.length === 0 && running && !blueThinking && (
+              <PixelLoader
+                variant="scroll"
+                label="Blue is fortifying the walls"
+                sublabel="Waiting for the first successful attack"
+              />
             )}
           </div>
         </div>

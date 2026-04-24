@@ -102,10 +102,17 @@ const MCP_TOOLS = [
   { name: 'sentinel_list_agent_tools', category: 'introspection',  description: 'Inspect tools available to monitored agents' },
 ] as const;
 
+// `/stats/mcp-status` is a capability manifest — it describes what tools the
+// Sentinel MCP server exposes, not whether a client is currently connected.
+// The MCP server runs as a separate process over stdio, so this HTTP endpoint
+// cannot observe live connection state. `status: 'registered'` is honest:
+// the server is available to be spawned, not necessarily running right now.
 statsRouter.get('/mcp-status', (c) => {
   const runs = getAllRuns();
   return c.json({
-    status: 'active',
+    status: 'registered',
+    kind: 'capability-manifest',
+    note: 'Describes exposed MCP tools. Not a live connection healthcheck — run `pnpm -F @sentinel/engine mcp` to start the stdio server.',
     version: '0.2.0',
     transport: 'stdio',
     tools: MCP_TOOLS,

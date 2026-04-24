@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 
 import { ENGINE } from "../lib/engine";
+import { PixelLoader } from "./PixelLoader";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -341,9 +342,17 @@ export default function FleetView({ agents }: FleetViewProps) {
 
       {/* Cards */}
       <div className="flex-1 flex gap-3 p-4 min-h-0">
-        {agents.map((agent) => (
-          <FleetCard key={agent.runId} agent={agent} />
-        ))}
+        {agents.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center">
+            <PixelLoader
+              variant="spark"
+              label="Launching fleet"
+              sublabel="Spinning up three parallel agents across the customer pool"
+            />
+          </div>
+        ) : (
+          agents.map((agent) => <FleetCard key={agent.runId} agent={agent} />)
+        )}
       </div>
     </div>
   );

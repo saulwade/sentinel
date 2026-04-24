@@ -35,6 +35,17 @@ interface CachedAnalysis {
 }
 
 const analysisCache = new Map<string, CachedAnalysis>();
+const CACHE_MAX = 20;
+
+function cachePut<K, V>(cache: Map<K, V>, key: K, value: V, max = CACHE_MAX) {
+  if (cache.has(key)) cache.delete(key);
+  cache.set(key, value);
+  while (cache.size > max) {
+    const oldest = cache.keys().next().value;
+    if (oldest === undefined) break;
+    cache.delete(oldest);
+  }
+}
 
 function scenarioLabel(agentConfig: string | undefined): string {
   if (agentConfig === 'support-agent') return 'Customer Support Agent — ticket triage with refund + PII lookup authority';
@@ -85,7 +96,7 @@ analysisRouter.get('/:runId', async (c) => {
     world: getWorld(),
   });
 
-  analysisCache.set(runId, { blast, analysis, thinkingText, computedAt: Date.now() });
+  cachePut(analysisCache, runId, { blast, analysis, thinkingText, computedAt: Date.now() });
 
   return c.json({
     runId,
@@ -244,7 +255,7 @@ analysisRouter.get('/:runId/stream', (c) => {
         },
       });
 
-      analysisCache.set(runId, { blast, analysis, thinkingText, computedAt: Date.now() });
+      cachePut(analysisCache, runId, { blast, analysis, thinkingText, computedAt: Date.now() });
 
       await stream.writeSSE({
         event: 'result',
@@ -315,7 +326,7 @@ analysisRouter.post('/:runId/intelligence', (c) => {
         },
       });
 
-      intelligenceCache.set(runId, { intelligence, thinkingText });
+      cachePut(intelligenceCache, runId, { intelligence, thinkingText });
 
       await stream.writeSSE({
         event: 'result',

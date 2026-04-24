@@ -20,7 +20,7 @@ import type {
 import { getAllEvents } from '../timetravel/snapshot.js';
 import { getAllRuns } from '../agent/runner.js';
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 120_000 });
 const MODEL = 'claude-opus-4-7';
 const PERSONA_THINKING = 4_000;
 const MODERATOR_THINKING = 4_000;
@@ -238,7 +238,7 @@ async function runPersona(
     const stream = client.messages.stream({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      thinking: { type: 'enabled', budget_tokens: PERSONA_THINKING },
+      thinking: { type: 'adaptive' } as any,
       system: PERSONA_SYSTEMS[persona],
       messages: [{ role: 'user', content: buildPersonaPrompt(ctx) }],
     });
@@ -331,7 +331,7 @@ async function runModerator(
     const stream = client.messages.stream({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      thinking: { type: 'enabled', budget_tokens: MODERATOR_THINKING },
+      thinking: { type: 'adaptive' } as any,
       system: MODERATOR_SYSTEM,
       messages: [{ role: 'user', content: userPrompt }],
     });

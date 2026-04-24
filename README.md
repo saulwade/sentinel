@@ -183,21 +183,34 @@ Open **[http://localhost:3000](http://localhost:3000)** and click **▶ Start De
 
 ## MCP integration (Claude Desktop / Claude Code)
 
-Sentinel exposes a full MCP server — connect it to Claude Desktop and interrogate your security posture without leaving Claude.
+Sentinel exposes a full MCP server — connect it to Claude Desktop or Claude Code and interrogate your security posture without leaving Claude.
 
-```json
-{
-  "mcpServers": {
-    "sentinel": {
-      "command": "pnpm",
-      "args": ["-F", "@sentinel/engine", "mcp"],
-      "cwd": "/absolute/path/to/sentinel"
-    }
-  }
-}
+### Setup (3 steps)
+
+**1. Copy the example config**
+
+```bash
+cp .mcp.json.example .mcp.json
 ```
 
-Add to `~/.claude/claude_desktop_config.json`, then run `cd apps/engine && pnpm mcp`.
+Then edit `.mcp.json`:
+- Replace `/ABSOLUTE_PATH/to/sentinel` with the real absolute path of this repo (`pwd` prints it).
+- Set `ANTHROPIC_API_KEY` (same one from `apps/engine/.env`).
+
+**2. Register the server**
+
+- **Claude Code:** put `.mcp.json` at the root of any project where you want Sentinel tools available. Claude Code auto-discovers project-local `.mcp.json` files on start.
+- **Claude Desktop:** copy the `mcpServers.sentinel` block into `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS).
+- Restart the client after editing.
+
+**3. Verify**
+
+In Claude Code, ask: *"List the Sentinel MCP tools"* — you should see the 7 tools below. If you see a "server failed" message, check:
+- `pnpm install` ran successfully in the repo root
+- `cwd` in `.mcp.json` is an absolute path (no `~`, no relatives)
+- `ANTHROPIC_API_KEY` is set in the `env` block
+
+> Note: `/stats/mcp-status` in the web UI reports `registered` — that's the capability manifest, not a live connection health check. The MCP server spawns per-client via stdio, so HTTP can't observe it directly.
 
 **Available tools:**
 
@@ -209,6 +222,79 @@ Add to `~/.claude/claude_desktop_config.json`, then run `cd apps/engine && pnpm 
 | `sentinel_get_policies` | Active policies with action, severity, source |
 | `sentinel_get_trust_score` | Composite Trust Score (A+ to F) across all runs |
 | `sentinel_list_agent_tools` | Agent's tools in MCP schema format |
+
+---
+
+## Deployment
+
+Sentinel is split across two hosts because the engine needs a persistent SQLite file:
+
+- **Web (`apps/web`)** → **Vercel** (Next.js native, edge network, zero config)
+- **Engine (`apps/engine`)** → **Fly.io** (Docker + 1GB persistent volume for SQLite)
+- **MCP server** → runs locally on the judge's machine via stdio (see section above)
+
+> ⚠ **Do not deploy the engine to Vercel.** `better-sqlite3` is a native binary that needs a real filesystem — it cannot run on Vercel's serverless functions.
+
+### Engine → Fly.io (~15 min first time)
+
+```bash
+# 1. Install and authenticate
+brew install flyctl
+flyctl auth login
+
+# 2. Launch the app (uses apps/engine/fly.toml, doesn't deploy yet)
+flyctl launch --no-deploy --config apps/engine/fly.toml --copy-config
+
+# 3. Create the SQLite volume (same region as the app)
+flyctl volumes create sentinel_data --size 1 --region dfw --config apps/engine/fly.toml
+
+# 4. Set secrets (values NOT committed)
+flyctl secrets set \
+  ANTHROPIC_API_KEY=sk-ant-... \
+  ADMIN_TOKEN=$(openssl rand -hex 16) \
+  ALLOWED_ORIGINS=https://localhost:3000 \
+  --config apps/engine/fly.toml
+# → ALLOWED_ORIGINS gets updated after Vercel is live (step 7)
+
+# 5. Deploy
+flyctl deploy --config apps/engine/fly.toml
+
+# 6. Verify
+curl https://sentinel-engine.fly.dev/health
+# → {"ok":true,"ts":...}
+```
+
+### Web → Vercel (~5 min)
+
+1. Push the repo to GitHub
+2. On [vercel.com](https://vercel.com) → Add New → Project → import the repo
+3. Framework preset auto-detects Next.js. **Set root directory to `apps/web`.**
+4. Environment Variables:
+   - `NEXT_PUBLIC_ENGINE_URL` = `https://sentinel-engine.fly.dev` (URL from step 6 above)
+5. Deploy → note the production URL (e.g. `https://sentinel-abcd.vercel.app`)
+
+### Wire CORS (~1 min)
+
+Point the engine at the real Vercel URL:
+
+```bash
+flyctl secrets set ALLOWED_ORIGINS=https://sentinel-abcd.vercel.app --config apps/engine/fly.toml
+# Fly auto-redeploys on secret change
+```
+
+Reload the Vercel URL. The "LIVE" pill in the header should turn green within 10 seconds.
+
+### Reset state during the demo
+
+- **Locally:** `rm apps/engine/data/sentinel.db && pnpm -F @sentinel/engine dev` (schema auto-recreates on boot)
+- **Remotely:** `curl -X POST https://sentinel-engine.fly.dev/admin/reset -H "x-admin-token: $ADMIN_TOKEN"` — wipes runs/events, reseeds default policies, keeps the volume
+
+### Things that will surprise you on first deploy
+
+- **Build timeout.** First Fly deploy can take 5-8 min (installing native deps for `better-sqlite3`). Subsequent deploys are cached and take ~60s.
+- **Cold start.** `auto_stop_machines = "suspend"` saves credits but adds ~3s latency to the first request after idle. Remove it in `fly.toml` if you want warm-always.
+- **CORS on WebSocket-y things.** The engine only allows origins listed in `ALLOWED_ORIGINS` (comma-separated). Include both `localhost:3000` and your Vercel URL during the demo if you'll test from both.
+- **MCP doesn't cross hosts.** The MCP server is stdio-only by design — it spawns on the judge's machine from `.mcp.json`, talks HTTP to the deployed engine. No ports to open.
 
 ---
 

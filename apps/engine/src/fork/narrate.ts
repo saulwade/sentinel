@@ -8,7 +8,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { AgentEvent } from '@sentinel/shared';
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 120_000 });
 const MODEL = 'claude-opus-4-7';
 
 export interface Narration {
@@ -30,7 +30,7 @@ export async function narrateFork(
   const stream = client.messages.stream({
     model: MODEL,
     max_tokens: 8_000,
-    thinking: { type: 'enabled', budget_tokens: 4_000 },
+    thinking: { type: 'adaptive' } as any,
     system: `You are a forensic analyst for AI agent security. You compare two execution branches of the same agent — the original run and an alternate (forked) run — and narrate the differences.
 
 Be specific about consequences: data leaked, records affected, systems compromised. Use concrete numbers when available. Keep it under 150 words. Write in present tense as if narrating events unfolding.`,

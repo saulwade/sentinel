@@ -6,7 +6,15 @@ const DB_PATH = process.env.DB_PATH ?? './data/sentinel.db';
 
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-mkdirSync(dirname(DB_PATH), { recursive: true });
+
+const dbDir = dirname(DB_PATH);
+try {
+  mkdirSync(dbDir, { recursive: true });
+} catch (err) {
+  console.error(`[db] failed to create data directory "${dbDir}":`, err instanceof Error ? err.message : err);
+  console.error('[db] check DB_PATH env var and filesystem permissions. Aborting.');
+  process.exit(1);
+}
 
 const sqlite = new Database(DB_PATH);
 sqlite.pragma('journal_mode = WAL');

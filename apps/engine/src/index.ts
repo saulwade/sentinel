@@ -24,6 +24,13 @@ import { agentDnaRouter } from './routes/agentDna.js';
 import { committeeRouter } from './routes/committee.js';
 import { whatifRouter } from './routes/whatif.js';
 
+// Fail fast if the Anthropic API key is missing — every Opus-backed route
+// would fail with a cryptic 401 otherwise. Better to refuse to boot.
+if (!process.env.ANTHROPIC_API_KEY) {
+  console.error('[fatal] ANTHROPIC_API_KEY is not set. Copy apps/engine/.env.example to .env and fill it in.');
+  process.exit(1);
+}
+
 // Hydrate in-memory registries from SQLite on startup.
 // If hydration fails, log clearly and continue — in-memory registries
 // will start empty but the engine stays up.

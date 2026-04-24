@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import AttackChain from "./AttackChain";
+import { PixelLoader } from "./PixelLoader";
 
 import { ENGINE } from "../lib/engine";
 
@@ -1007,6 +1008,14 @@ export default function Replay({
               </p>
             )}
 
+            {intelligenceLoading && !intelligenceThinking && (
+              <PixelLoader
+                variant="knight"
+                label="Summoning Opus"
+                sublabel="Generating threat profile · narrative · briefing"
+              />
+            )}
+
             {intelligenceLoading && intelligenceThinking && (
               <div className="rounded-lg px-3 py-2" style={{ background: "rgba(167,139,250,0.04)", border: "1px solid rgba(167,139,250,0.2)" }}>
                 <div className="text-[9px] font-mono uppercase tracking-widest mb-1" style={{ color: "#A78BFA" }}>
@@ -1130,6 +1139,13 @@ export default function Replay({
           </div>
 
           <div className="px-4 py-3 space-y-3">
+            {surgeryRunning && !surgeryAttempt && !surgeryThinking && !surgeryError && (
+              <PixelLoader
+                variant="knight"
+                label="Preparing the surgery"
+                sublabel="Opus is loading 1M context of clean history"
+              />
+            )}
             {/* Attempt ticker */}
             {surgeryAttempt && (
               <div className="flex items-center gap-2 text-[10px] font-mono" style={{ color: "#A78BFA" }}>

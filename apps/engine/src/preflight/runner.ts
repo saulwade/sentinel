@@ -10,7 +10,7 @@ import { nanoid } from 'nanoid';
 import type { SimEvent, SimScenario } from './world.js';
 import { generateScenarios } from './world.js';
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 120_000 });
 const EVAL_MODEL = 'claude-sonnet-4-6'; // fast model for bulk evaluation
 
 export type DayStatus = 'pass' | 'fail' | 'running';

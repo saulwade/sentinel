@@ -8,7 +8,8 @@ import Preflight from "./Preflight";
 import RedTeam from "./RedTeam";
 import AskOpus from "./AskOpus";
 import OnboardingOverlay from "./OnboardingOverlay";
-import { ENGINE } from "../lib/engine";
+import Toasts from "./Toasts";
+import { ENGINE, emitToast } from "../lib/engine";
 
 const TABS = ["Command Center", "Runtime", "Replay", "Pre-flight", "Red Team", "Ask"] as const;
 type Tab = (typeof TABS)[number];
@@ -142,6 +143,7 @@ export default function Shell() {
   const [externalRunId, setExternalRunId] = useState<string | null>(null);
   const [autoAnalyze, setAutoAnalyze] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [highlightRun, setHighlightRun] = useState(false);
   const [executive, setExecutive] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -150,7 +152,11 @@ export default function Shell() {
   async function handleReset() {
     setResetting(true);
     try {
-      await fetch(`${ENGINE}/admin/reset`, { method: "POST" });
+      const adminToken = process.env.NEXT_PUBLIC_ADMIN_TOKEN;
+      await fetch(`${ENGINE}/admin/reset`, {
+        method: "POST",
+        headers: adminToken ? { "x-admin-token": adminToken } : undefined,
+      });
       setRunId(null);
       setAgentLabel("Sentinel Agent");
       setTaskDescription(null);
@@ -172,20 +178,44 @@ export default function Shell() {
 
   useEffect(() => {
     let cancelled = false;
+    let consecutiveFailures = 0;
+    let lastState: boolean | null = null;
     async function ping() {
       const controller = new AbortController();
       const t = setTimeout(() => controller.abort(), 3000);
+      let ok = false;
       try {
         const res = await fetch(`${ENGINE}/health`, { signal: controller.signal });
-        if (!cancelled) setEngineOnline(res.ok);
+        ok = res.ok;
       } catch {
-        if (!cancelled) setEngineOnline(false);
+        ok = false;
       } finally {
         clearTimeout(t);
       }
+      if (cancelled) return;
+      if (ok) {
+        consecutiveFailures = 0;
+        if (lastState === false) {
+          // Transitioned offline → online
+          emitToast({ kind: "info", message: "Engine reconnected" });
+        }
+        lastState = true;
+        setEngineOnline(true);
+      } else {
+        consecutiveFailures++;
+        // Only flip to "offline" after 2 consecutive failures — avoids a single
+        // flaky request showing a red banner.
+        if (consecutiveFailures >= 2) {
+          if (lastState !== false) {
+            emitToast({ kind: "error", message: "Engine offline — retrying…" });
+          }
+          lastState = false;
+          setEngineOnline(false);
+        }
+      }
     }
     ping();
-    const t = setInterval(ping, 30_000);
+    const t = setInterval(ping, 10_000);
     return () => { cancelled = true; clearInterval(t); };
   }, []);
 
@@ -219,7 +249,17 @@ export default function Shell() {
   const handleOnboardingSkip = useCallback(() => {
     setShowOnboarding(false);
     try { localStorage.setItem("sentinel_onboarding_seen", "1"); } catch {}
+    setActiveTab("Runtime");
+    setHighlightRun(true);
   }, []);
+
+  // Auto-clear the Run button pulse after 3s. Effect form (vs bare setTimeout)
+  // ensures cleanup on unmount so no stale setState fires.
+  useEffect(() => {
+    if (!highlightRun) return;
+    const t = setTimeout(() => setHighlightRun(false), 3000);
+    return () => clearTimeout(t);
+  }, [highlightRun]);
 
   const handleRequestRun = useCallback(() => {
     setPendingRun(true);
@@ -253,6 +293,7 @@ export default function Shell() {
 
   return (
     <div className="flex flex-col h-screen" style={{ background: "#0A0A0D" }}>
+      <Toasts />
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
       {showOnboarding && (
         <OnboardingOverlay onStartDemo={handleOnboardingStart} onSkip={handleOnboardingSkip} />
@@ -442,6 +483,7 @@ export default function Shell() {
                 executive={executive}
                 externalRunId={externalRunId}
                 onExternalRunConsumed={() => setExternalRunId(null)}
+                highlightRun={highlightRun}
               />
             )}
             {tab === "Replay" && (

@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { ENGINE } from "../lib/engine";
+import { PixelLoader } from "./PixelLoader";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -207,14 +208,12 @@ export default function ForkView({ runId }: { runId: string | null }) {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4">
-        <div className="flex items-center gap-3">
-          <span className="w-2 h-2 rounded-full bg-[#A78BFA] animate-pulse" />
-          <span className="w-2 h-2 rounded-full bg-[#7DD3FC] animate-pulse" style={{ animationDelay: "150ms" }} />
-          <span className="w-2 h-2 rounded-full bg-[#2DD4A4] animate-pulse" style={{ animationDelay: "300ms" }} />
-        </div>
-        <p className="font-mono text-sm" style={{ color: "#A78BFA" }}>Forking reality...</p>
-        <p className="font-mono text-xs" style={{ color: "#8A8A93" }}>Replaying agent in alternate timeline</p>
+      <div className="flex items-center justify-center h-full">
+        <PixelLoader
+          variant="knight"
+          label="Forking reality"
+          sublabel="Replaying the agent in an alternate timeline"
+        />
       </div>
     );
   }

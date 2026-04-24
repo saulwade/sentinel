@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 
 import { ENGINE } from "../lib/engine";
+import { PixelLoader } from "./PixelLoader";
 
 // ─── Types (mirror @sentinel/shared/committee) ────────────────────────────────
 
@@ -183,7 +184,9 @@ export default function Committee({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6"
       style={{ background: "rgba(10,10,13,0.85)", backdropFilter: "blur(6px)" }}
-      onClick={onClose}
+      onClick={() => {
+        if (phase === "done" || fatalError) onClose();
+      }}
     >
       <div
         className="rounded-xl w-full max-w-[min(1100px,calc(100vw-24px))] max-h-[90vh] flex flex-col"
@@ -230,6 +233,14 @@ export default function Committee({
             <div className="rounded-lg px-4 py-3" style={{ background: "rgba(255,90,90,0.05)", border: "1px solid rgba(255,90,90,0.3)" }}>
               <p className="text-xs font-mono" style={{ color: "#FF5A5A" }}>{fatalError}</p>
             </div>
+          )}
+
+          {opinions.size === 0 && !fatalError && !thinking.ciso && !thinking.legal && !thinking.product && (
+            <PixelLoader
+              variant="scroll"
+              label="Convening the council"
+              sublabel="CISO · Legal · Product are reviewing the incident"
+            />
           )}
 
           {/* Three personas grid */}
@@ -358,6 +369,19 @@ export default function Committee({
                   </span>
                 )}
               </div>
+
+              {/* Loader while moderator hasn't started or finished */}
+              {!consensus && (
+                <PixelLoader
+                  variant="scroll"
+                  label={thinking.moderator ? "Drafting consensus" : "Moderator is reading the opinions"}
+                  sublabel={
+                    thinking.moderator
+                      ? `~${Math.ceil(thinking.moderator.length / 4)} tokens of reasoning`
+                      : "Synthesizing three persona verdicts"
+                  }
+                />
+              )}
 
               {/* Moderator thinking */}
               {thinking.moderator && (

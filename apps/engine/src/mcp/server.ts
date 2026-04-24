@@ -275,6 +275,12 @@ export function createSentinelMcpServer(): McpServer {
 export async function startMcpServer(): Promise<void> {
   const server = createSentinelMcpServer();
   const transport = new StdioServerTransport();
-  await server.connect(transport);
+  try {
+    await server.connect(transport);
+  } catch (err) {
+    console.error('[sentinel-mcp] failed to connect stdio transport:', err instanceof Error ? err.message : err);
+    console.error('[sentinel-mcp] possible causes: another process already holds the transport, corrupted stdio pipes, or missing permissions.');
+    process.exit(1);
+  }
   console.error('[sentinel-mcp] MCP server running on stdio');
 }

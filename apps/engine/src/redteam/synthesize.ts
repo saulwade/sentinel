@@ -18,7 +18,7 @@ import { evaluatePolicies } from '../policies/engine.js';
 import { getWorld } from '../agent/world.js';
 import { seedSupportScenario } from '../agent/scenarios/support.js';
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 120_000 });
 const MODEL = 'claude-opus-4-7';
 const THINKING_BUDGET = 6_000;
 const MAX_ATTEMPTS = 2;
@@ -193,7 +193,7 @@ async function callOpus(
   const params = {
     model: MODEL,
     max_tokens: 8_000,
-    thinking: { type: 'enabled' as const, budget_tokens: THINKING_BUDGET },
+    thinking: { type: 'adaptive' } as any,
     system: SYNTHESIS_SYSTEM,
     messages: [{ role: 'user' as const, content: buildUserPrompt(attack, testResult, previousFailure) }],
   };
@@ -288,7 +288,7 @@ export async function synthesizePolicyFromText(description: string): Promise<Aut
   const res = await client.messages.create({
     model: MODEL,
     max_tokens: 8_000,
-    thinking: { type: 'enabled', budget_tokens: THINKING_BUDGET },
+    thinking: { type: 'adaptive' } as any,
     system: SYNTHESIS_SYSTEM + '\n\n' + AUTHOR_INSTRUCTIONS,
     messages: [{ role: 'user', content: `## User request\n\n${description.trim()}\n\nWrite a single Policy JSON object that matches this intent.` }],
   });

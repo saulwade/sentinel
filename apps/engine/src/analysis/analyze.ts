@@ -12,7 +12,7 @@ import type { BlastRadius } from './blastRadius.js';
 import type { WorldState } from '../agent/world.js';
 import { ANALYSIS_SYSTEM, buildAnalysisUserPrompt } from './prompts.js';
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 120_000 });
 
 const MODEL = 'claude-opus-4-7';
 const THINKING_BUDGET = 10_000;
@@ -47,7 +47,7 @@ export async function analyzeRun(opts: AnalyzeOptions): Promise<AnalyzeResult> {
   const stream = client.messages.stream({
     model: MODEL,
     max_tokens: MAX_TOKENS,
-    thinking: { type: 'enabled', budget_tokens: THINKING_BUDGET },
+    thinking: { type: 'adaptive' } as any,
     system: ANALYSIS_SYSTEM,
     messages: [{ role: 'user', content: userPrompt }],
   });
