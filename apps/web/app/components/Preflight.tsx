@@ -119,6 +119,14 @@ function ScenarioBuilder({ onLaunched }: { onLaunched?: (runId: string, label: s
         </div>
       )}
 
+      {synthesizing && !scenario && (
+        <PixelLoader
+          variant="scroll"
+          label="Opus is drafting the scenario"
+          sublabel="Designing customers, tickets, and a tool chain"
+        />
+      )}
+
       {scenario && (
         <div className="mt-4 space-y-3">
           <div className="flex items-center gap-2">
