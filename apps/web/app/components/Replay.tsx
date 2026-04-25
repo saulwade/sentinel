@@ -639,14 +639,14 @@ export default function Replay({
     <div className="flex flex-col h-full overflow-y-auto" style={{ background: "#0A0A0D" }}>
 
       {/* ── Scrubber ─────────────────────────────────────────────────── */}
-      <div className="px-4 py-3 border-b shrink-0" style={{ borderColor: "#262630" }}>
-        <div className="flex items-center gap-2 mb-2">
+      <div className="px-3 sm:px-4 py-3 border-b shrink-0" style={{ borderColor: "#262630" }}>
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
           <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
             Investigate
           </span>
           <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>{events.length} events</span>
           {chainView === "timeline" && (
-            <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>← → to scrub</span>
+            <span className="hidden sm:inline text-[10px] font-mono" style={{ color: "#8A8A93" }}>← → to scrub</span>
           )}
           {runId && (
             <ShareButton runId={runId} />

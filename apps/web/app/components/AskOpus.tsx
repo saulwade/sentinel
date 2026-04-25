@@ -211,16 +211,16 @@ export default function AskOpus() {
     <div className="flex flex-col h-full" style={{ background: "#0A0A0D" }}>
       {/* ── Header ───────────────────────────────────────────────────── */}
       <div
-        className="flex items-center gap-3 px-5 py-2.5 border-b shrink-0"
+        className="flex items-center gap-3 px-3 sm:px-5 py-2.5 border-b shrink-0 min-w-0"
         style={{ borderColor: "#262630" }}
       >
-        <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
+        <span className="text-[10px] font-mono uppercase tracking-widest shrink-0" style={{ color: "#8A8A93" }}>
           Ask Opus
         </span>
-        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(167,139,250,0.1)", color: "#A78BFA" }}>
+        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0 whitespace-nowrap" style={{ background: "rgba(167,139,250,0.1)", color: "#A78BFA" }}>
           OPUS 4.7 · 1M CONTEXT
         </span>
-        <span className="text-[10px] font-mono ml-auto" style={{ color: "#8A8A93" }}>
+        <span className="hidden md:inline text-[10px] font-mono ml-auto truncate" style={{ color: "#8A8A93" }}>
           Your CISO · grounded in every run, event, and policy
         </span>
       </div>

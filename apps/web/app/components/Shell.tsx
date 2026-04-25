@@ -322,50 +322,55 @@ export default function Shell() {
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div
-        className="flex items-center gap-1 flex-wrap px-4 py-2 border-b shrink-0"
+        className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b shrink-0 min-w-0"
         style={{ borderColor: "#262630" }}
       >
         {/* Logo */}
-        <div className="flex items-center gap-2.5 mr-5">
+        <div className="flex items-center gap-2.5 shrink-0 mr-2 sm:mr-5">
           <div className="w-6 h-6 rounded flex items-center justify-center" style={{ background: "#A78BFA" }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0A0A0D" strokeWidth="2.5" strokeLinecap="round">
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
             </svg>
           </div>
-          <div className="flex flex-col">
+          <div className="hidden sm:flex flex-col">
             <span className="font-mono text-sm font-medium tracking-widest" style={{ color: "#F5F5F7" }}>
               SENTINEL
             </span>
-            <span className="font-mono text-[9px] tracking-widest" style={{ color: "#8A8A93" }}>
+            <span className="font-mono text-[9px] tracking-widest hidden md:inline" style={{ color: "#8A8A93" }}>
               AI Agent Security Platform
             </span>
           </div>
         </div>
 
-        {/* Tabs */}
-        {TABS.map((tab, i) => {
-          const isActive = activeTab === tab;
-          return (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              title={TAB_SUBTITLES[tab]}
-              className="px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 active:scale-95"
-              style={{
-                background: isActive ? "#1C1C24" : "transparent",
-                color: isActive ? "#F5F5F7" : "#8A8A93",
-                border: isActive ? "1px solid #262630" : "1px solid transparent",
-                boxShadow: isActive ? "0 0 12px rgba(167,139,250,0.08)" : "none",
-              }}
-            >
-              <span className="opacity-40 mr-1">{i + 1}</span>
-              {TAB_LABELS[tab]}
-            </button>
-          );
-        })}
+        {/* Tabs — horizontal scroll on small screens, no wrap */}
+        <nav
+          className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar"
+          aria-label="Primary"
+        >
+          {TABS.map((tab, i) => {
+            const isActive = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                title={TAB_SUBTITLES[tab]}
+                className="px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 active:scale-95 whitespace-nowrap shrink-0"
+                style={{
+                  background: isActive ? "#1C1C24" : "transparent",
+                  color: isActive ? "#F5F5F7" : "#8A8A93",
+                  border: isActive ? "1px solid #262630" : "1px solid transparent",
+                  boxShadow: isActive ? "0 0 12px rgba(167,139,250,0.08)" : "none",
+                }}
+              >
+                <span className="opacity-40 mr-1">{i + 1}</span>
+                {TAB_LABELS[tab]}
+              </button>
+            );
+          })}
+        </nav>
 
         {/* Agent context + help hint */}
-        <div className="ml-auto flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <div
             className="flex rounded overflow-hidden shrink-0"
             style={{ border: "1px solid #262630" }}
@@ -396,10 +401,10 @@ export default function Shell() {
           </div>
           {runId && (
             <>
-              <span className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ color: "#8A8A93", background: "#14141A" }}>
+              <span className="hidden lg:inline font-mono text-[10px] px-2 py-0.5 rounded" style={{ color: "#8A8A93", background: "#14141A" }}>
                 {agentLabel}
               </span>
-              <span className="font-mono text-[10px]" style={{ color: "#8A8A93" }}>
+              <span className="hidden md:inline font-mono text-[10px]" style={{ color: "#8A8A93" }}>
                 {runId.slice(0, 8)}
               </span>
             </>
@@ -460,16 +465,16 @@ export default function Shell() {
       {/* ── Agent task banner ────────────────────────────────────────── */}
       {runId && (
         <div
-          className="flex items-center gap-3 px-5 py-1.5 border-b shrink-0"
+          className="flex items-center gap-3 px-3 sm:px-5 py-1.5 border-b shrink-0 min-w-0"
           style={{ borderColor: "#262630", background: "#14141A" }}
         >
-          <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
+          <span className="text-[10px] font-mono uppercase tracking-widest shrink-0" style={{ color: "#8A8A93" }}>
             Task
           </span>
-          <span className="text-xs font-mono" style={{ color: "#F5F5F7" }}>
+          <span className="text-xs font-mono truncate min-w-0" style={{ color: "#F5F5F7" }}>
             &quot;{taskDescription ?? "Process agent tasks"}&quot;
           </span>
-          <span className="text-[10px] font-mono" style={{ color: "#8A8A93" }}>
+          <span className="hidden lg:inline text-[10px] font-mono shrink-0 truncate" style={{ color: "#8A8A93" }}>
             7 tools: lookup_customer_detail, apply_refund, update_ticket, send_email, post_slack…
           </span>
         </div>

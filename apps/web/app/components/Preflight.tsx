@@ -567,7 +567,7 @@ export default function Preflight({ onLaunchedCustomRun }: { onLaunchedCustomRun
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Controls */}
       <div className="px-3 sm:px-5 py-3 border-b shrink-0 flex flex-wrap items-center gap-x-4 gap-y-2" style={{ borderColor: "#262630" }}>
         <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#8A8A93" }}>
@@ -588,11 +588,14 @@ export default function Preflight({ onLaunchedCustomRun }: { onLaunchedCustomRun
         </button>
       </div>
 
+      {/* Single scroll region — cards + day stream scroll together so the
+          textareas above never get clipped on short viewports. */}
+      <div className="flex-1 overflow-y-auto min-h-0">
       <AgentDnaSection onLaunched={onLaunchedCustomRun} />
       <ScenarioBuilder onLaunched={onLaunchedCustomRun} />
 
       {/* Day stream */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-1">
+      <div className="p-4 space-y-1">
         {status === "idle" && (
           <div className="flex items-center justify-center h-full">
             <div className="text-center space-y-2">
@@ -679,6 +682,7 @@ export default function Preflight({ onLaunchedCustomRun }: { onLaunchedCustomRun
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
