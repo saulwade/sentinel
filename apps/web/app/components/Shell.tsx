@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import CommandCenter from "./CommandCenter";
 import LiveView from "./LiveView";
 import Replay from "./Replay";
@@ -31,6 +31,132 @@ const TAB_SUBTITLES: Record<Tab, string> = {
   "Red Team":       "Run adaptive adversarial attacks and synthesize new security policies from bypasses",
   "Ask":            "Ask Sentinel anything — Opus 4.7 answers grounded in your full operational history",
 };
+
+// ─── Tab nav ──────────────────────────────────────────────────────────────────
+//
+// Two-mode primary navigation:
+//   • ≥ lg (1024px+): inline button row, one tab per pill, full labels
+//   • < lg:           dropdown — current tab + chevron, expands to a menu of all tabs
+//
+// We do NOT use horizontal scroll. Below lg the row would either truncate or
+// require a hidden swipe gesture. Both feel broken; the dropdown reads as
+// "premium native nav" and keeps the active tab obvious.
+
+function TabNav({ tabs, active, onSelect }: {
+  tabs: readonly Tab[];
+  active: Tab;
+  onSelect: (t: Tab) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click + Escape
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") setOpen(false); }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const activeIdx = tabs.indexOf(active);
+
+  return (
+    <>
+      {/* ≥ lg — inline button row */}
+      <nav
+        className="hidden xl:flex items-center gap-1 flex-1 min-w-0"
+        aria-label="Primary"
+      >
+        {tabs.map((tab, i) => {
+          const isActive = active === tab;
+          return (
+            <button
+              key={tab}
+              onClick={() => onSelect(tab)}
+              title={TAB_SUBTITLES[tab]}
+              className="px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 active:scale-95 whitespace-nowrap shrink-0"
+              style={{
+                background: isActive ? "#1C1C24" : "transparent",
+                color: isActive ? "#F5F5F7" : "#8A8A93",
+                border: isActive ? "1px solid #262630" : "1px solid transparent",
+                boxShadow: isActive ? "0 0 12px rgba(167,139,250,0.08)" : "none",
+              }}
+            >
+              <span className="opacity-40 mr-1">{i + 1}</span>
+              {TAB_LABELS[tab]}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* < lg — dropdown */}
+      <div ref={wrapRef} className="relative flex-1 min-w-0 xl:hidden">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded text-xs font-mono transition-all active:scale-[0.98]"
+          style={{
+            background: "#1C1C24",
+            color: "#F5F5F7",
+            border: "1px solid #262630",
+            boxShadow: "0 0 12px rgba(167,139,250,0.08)",
+          }}
+        >
+          <span className="truncate">
+            <span className="opacity-40 mr-1">{activeIdx + 1}</span>
+            {TAB_LABELS[active]}
+          </span>
+          <svg
+            width="10" height="10" viewBox="0 0 10 10"
+            className="shrink-0 transition-transform"
+            style={{ transform: open ? "rotate(180deg)" : undefined, color: "#8A8A93" }}
+          >
+            <path d="M2 3.5 L5 6.5 L8 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+
+        {open && (
+          <div
+            role="menu"
+            className="absolute left-0 right-0 mt-1 z-50 rounded-lg overflow-hidden shadow-2xl"
+            style={{ background: "#0D0D12", border: "1px solid #262630" }}
+          >
+            {tabs.map((tab, i) => {
+              const isActive = active === tab;
+              return (
+                <button
+                  key={tab}
+                  role="menuitem"
+                  onClick={() => { onSelect(tab); setOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-mono transition-all hover:brightness-125"
+                  style={{
+                    background: isActive ? "#1C1C24" : "transparent",
+                    color: isActive ? "#F5F5F7" : "#8A8A93",
+                    borderTop: i === 0 ? undefined : "1px solid #1C1C24",
+                  }}
+                >
+                  <span className="opacity-40 w-3 text-left">{i + 1}</span>
+                  <span className="truncate">{TAB_LABELS[tab]}</span>
+                  {isActive && (
+                    <span className="ml-auto text-[10px]" style={{ color: "#A78BFA" }}>●</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
 
 // ─── Help modal ───────────────────────────────────────────────────────────────
 
@@ -313,7 +439,7 @@ export default function Shell() {
   }, []);
 
   return (
-    <div className="flex flex-col h-screen" style={{ background: "#0A0A0D" }}>
+    <div className="flex flex-col h-[100dvh] min-h-0" style={{ background: "#0A0A0D" }}>
       <Toasts />
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
       {showOnboarding && (
@@ -342,37 +468,13 @@ export default function Shell() {
           </div>
         </div>
 
-        {/* Tabs — horizontal scroll on small screens, no wrap */}
-        <nav
-          className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar"
-          aria-label="Primary"
-        >
-          {TABS.map((tab, i) => {
-            const isActive = activeTab === tab;
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                title={TAB_SUBTITLES[tab]}
-                className="px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 active:scale-95 whitespace-nowrap shrink-0"
-                style={{
-                  background: isActive ? "#1C1C24" : "transparent",
-                  color: isActive ? "#F5F5F7" : "#8A8A93",
-                  border: isActive ? "1px solid #262630" : "1px solid transparent",
-                  boxShadow: isActive ? "0 0 12px rgba(167,139,250,0.08)" : "none",
-                }}
-              >
-                <span className="opacity-40 mr-1">{i + 1}</span>
-                {TAB_LABELS[tab]}
-              </button>
-            );
-          })}
-        </nav>
+        {/* Tabs — inline row at lg+, dropdown below */}
+        <TabNav tabs={TABS} active={activeTab} onSelect={(t) => setActiveTab(t)} />
 
         {/* Agent context + help hint */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <div
-            className="flex rounded overflow-hidden shrink-0"
+            className="hidden md:flex rounded overflow-hidden shrink-0"
             style={{ border: "1px solid #262630" }}
             title="Switch between technical detail and an exec-friendly overview"
           >
@@ -411,7 +513,7 @@ export default function Shell() {
           )}
           {engineOnline !== null && (
             <span
-              className="flex items-center gap-1.5 text-[10px] font-mono"
+              className="flex items-center gap-1.5 text-[10px] font-mono shrink-0"
               style={{ color: engineOnline ? "#2DD4A4" : "#FF5A5A" }}
               title={engineOnline ? "Engine is reachable" : `Engine offline — run: cd apps/engine && pnpm dev`}
             >
@@ -419,7 +521,7 @@ export default function Shell() {
                 className="w-1.5 h-1.5 rounded-full"
                 style={{ background: engineOnline ? "#2DD4A4" : "#FF5A5A", boxShadow: engineOnline ? "0 0 6px rgba(45,212,164,0.6)" : undefined }}
               />
-              {engineOnline ? "LIVE" : "OFFLINE"}
+              <span className="hidden sm:inline">{engineOnline ? "LIVE" : "OFFLINE"}</span>
             </span>
           )}
           {showResetConfirm ? (
